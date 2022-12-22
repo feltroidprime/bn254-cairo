@@ -229,3 +229,6 @@ func final_exponentiation{range_check_ptr}(x: FQ12) -> (res: FQ12) {
 
     return fq12_pow_12(x, final_exponent);
 }
+
+
+func 
