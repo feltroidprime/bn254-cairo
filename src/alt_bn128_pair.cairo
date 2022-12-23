@@ -1,4 +1,4 @@
-from bigint import BigInt3, nondet_bigint3, bigint_mul, UnreducedBigInt5
+from starkware.cairo.common.cairo_secp.bigint import BigInt3, nondet_bigint3, bigint_mul, UnreducedBigInt5
 from alt_bn128_def import P0, P1, P2
 from alt_bn128_field import (
     is_zero,

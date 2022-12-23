@@ -1,4 +1,4 @@
-from bigint import BigInt3
+from starkware.cairo.common.cairo_secp.bigint import BigInt3
 from alt_bn128_field import FQ2
 
 struct G2Point {

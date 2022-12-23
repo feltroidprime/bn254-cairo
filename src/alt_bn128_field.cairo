@@ -1,7 +1,14 @@
 from starkware.cairo.common.bitwise import bitwise_and
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 
-from bigint import BASE, BigInt3, UnreducedBigInt3, UnreducedBigInt5, nondet_bigint3, bigint_mul
+from starkware.cairo.common.cairo_secp.bigint import (
+    BASE,
+    BigInt3,
+    UnreducedBigInt3,
+    UnreducedBigInt5,
+    nondet_bigint3,
+    bigint_mul,
+)
 from alt_bn128_def import P0, P1, P2
 
 // FIELD STRUCTURES

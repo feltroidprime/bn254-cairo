@@ -4,7 +4,7 @@
 // The generator point for the ECDSA is:
 //   G = (0x1, 0x2)
 
-from bigint import BASE, BigInt3, bigint_mul, nondet_bigint3
+from starkware.cairo.common.cairo_secp.bigint import BASE, BigInt3, bigint_mul, nondet_bigint3
 from alt_bn128_def import N0, N1, N2
 from alt_bn128_g1 import G1Point, ec_add, ec_mul
 
