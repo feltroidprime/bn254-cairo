@@ -1,9 +1,15 @@
 from starkware.cairo.common.cairo_secp.bigint import BigInt3
-from alt_bn128_field import FQ2
+from alt_bn128_fq2 import fq2, FQ2
 
 struct G2Point {
     x: FQ2,
     y: FQ2,
+}
+
+struct G2JacobPoint {
+    x: FQ2,
+    y: FQ2,
+    z: FQ2,
 }
 
 func g2() -> (res: G2Point) {
@@ -31,4 +37,34 @@ func g2_negone() -> (res: G2Point) {
             BigInt3(d0=55568417236596615360446365, d1=20361937528170921243484528, d2=2237202444931152845658701),
             BigInt3(d0=75234859396250709295523308, d1=58200249186681967413131230, d2=2974432145097327839591194))),
     );
+}
+
+namespace g2_arithmetics {
+    // formula sources : https://eprint.iacr.org/2010/526
+
+    func to_jacobian{range_check_ptr}(x: G2Point) -> G2JacobPoint {
+        let one: FQ2 = FQ2(Uint256(1, 0), Uint256(1, 0));
+        let res = G2JacobPoint(x.x, x.y, one);
+        return res;
+    }
+    func add{range_check_ptr}(x: G2JacobPoint, y: G2JacobPoint) -> G2JacobPoint {
+    }
+
+    // Algorithm 9 in paper
+    func double{range_check_ptr}(a: G2JacobPoint) -> G2JacobPoint {
+        // 1.
+        let t0: FQ2 = fq2.mul(a.x, a.x);
+        let t2: FQ2 = fq2.mul(a.z, a.z);
+
+        // 2.
+        let t1: FQ2 = fq2.add(t0, t0);
+        let z3: FQ2 = fq2.mul(a.y, a.z);
+
+        // 3.
+        let t0 = fq2.add(t0, t1);
+        let t3 = fq2.mul(a.y, a.y);
+
+        // 4.
+        let 
+    }
 }
