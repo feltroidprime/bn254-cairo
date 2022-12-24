@@ -2,11 +2,16 @@
 // The curve is given by the equation
 //   y^2 = x^3 + 3
 // over the field Z/p for
-// p = p(u) = 36u^4 + 36u^3 + 24u^2 + 6u + 1
-// const p = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+// p = p(u) = 36u^4 + 36u^3 + 24u^2 + 6u + 1 with u = 4965661367192848881
+// const p = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 =
+// const p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
+
 const P0 = 0x31ca8d3c208c16d87cfd47;
 const P1 = 0x16da060561765e05aa45a1;
 const P2 = 0x30644e72e131a029b8504;
+
+const P_low = 201385395114098847380338600778089168199;
+const P_high = 64323764613183177041862057485226039389;
 
 // The following constants represent the size of the curve:
 // n = n(u) = 36u^4 + 36u^3 + 18u^2 + 6u + 1
