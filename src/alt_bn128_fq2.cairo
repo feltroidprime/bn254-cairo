@@ -54,4 +54,12 @@ namespace fq2 {
         let res = FQ2(first_term, second_term);
         return res;
     }
+
+    func div_by_2{range_check_ptr}(a: FQ2) -> FQ2 {
+        let new_x: Uint256 = fbn254.div(a.e0, Uint256(2, 0));
+        let new_y: Uint256 = fbn254.div(a.e1, Uint256(2, 0));
+
+        let res = FQ2(new_x, new_y);
+        return res;
+    }
 }
