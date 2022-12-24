@@ -1,6 +1,7 @@
 from starkware.cairo.common.cairo_secp.bigint import BigInt3
 from alt_bn128_fq2 import fq2, FQ2
 
+
 struct G2Point {
     x: FQ2,
     y: FQ2,
@@ -11,6 +12,7 @@ struct G2JacobPoint {
     y: FQ2,
     z: FQ2,
 }
+
 
 func g2() -> (res: G2Point) {
     return (
@@ -61,10 +63,35 @@ namespace g2_arithmetics {
         let z3: FQ2 = fq2.mul(a.y, a.z);
 
         // 3.
-        let t0 = fq2.add(t0, t1);
-        let t3 = fq2.mul(a.y, a.y);
+        let t0: FQ2 = fq2.add(t0, t1);
+        let t3: FQ2 = fq2.mul(a.y, a.y);
 
         // 4.
-        let 
+        let t0: FQ2 = fq2.div_by_2(t0);
+
+        // 5.
+        let t1: FQ2 = fq2.mul(t0, t2);
+        let t4: FQ2 = fq2.mul(t0, a.x);
+
+        // 6.
+
+        // 7.
+        let t1: FQ2 = fq2.mul(t3, a.x);
+        // 8.
+
+        // 9.
+        let x3: FQ2 = fq2.sub(a.x, a.y);
+
+        // 10.
+        let t1: FQ2 = fq2.sub(t1, x3);
+
+        // 11.
+        let T0 = 
+        // 12. 
+        
+        // 13. 
+
+        let res:G2JacobPoint = G2JacobPoint(x3, y3, z3);
+        return res;
     }
 }
