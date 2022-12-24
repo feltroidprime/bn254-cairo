@@ -32,21 +32,6 @@ struct FQ12 {
     eB: BigInt3,
 }
 
-struct unreducedFQ12 {
-    e0: UnreducedBigInt5,
-    e1: UnreducedBigInt5,
-    e2: UnreducedBigInt5,
-    e3: UnreducedBigInt5,
-    e4: UnreducedBigInt5,
-    e5: UnreducedBigInt5,
-    e6: UnreducedBigInt5,
-    e7: UnreducedBigInt5,
-    e8: UnreducedBigInt5,
-    e9: UnreducedBigInt5,
-    eA: UnreducedBigInt5,
-    eB: UnreducedBigInt5,
-}
-
 // FIELD CONSTANTS
 func fq_zero() -> (res: BigInt3) {
     return (BigInt3(0, 0, 0),);
