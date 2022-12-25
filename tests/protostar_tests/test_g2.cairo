@@ -5,8 +5,14 @@ from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256
 
 from starkware.cairo.common.cairo_secp.bigint import BigInt3, uint256_to_bigint, bigint_to_uint256
-from src.g2 import g2_arithmetics
-from src.curve import G2JacobPoint, get_g2_generator
+from src.g2 import (
+    g2_arithmetics,
+    get_g2_generator,
+    get_g22_generator,
+    g2_weierstrass_arithmetics,
+    G2Point,
+    G2JacobPoint,
+)
 
 @external
 func __setup__() {
@@ -80,6 +86,18 @@ func test_double_g2{
     let G2_jacob = g2_arithmetics.to_jacobian(G2);
 
     let res: G2JacobPoint = g2_arithmetics.double(G2_jacob);
+
+    return ();
+}
+
+@external
+func test_compute_slope{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}() {
+    __setup__();
+    let G2: G2Point = get_g2_generator();
+    let G22: G2Point = get_g22_generator();
+    let res = g2_weierstrass_arithmetics.compute_slope(G22, G2);
 
     return ();
 }
