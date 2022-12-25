@@ -9,7 +9,7 @@ from starkware.cairo.common.cairo_secp.bigint import (
     nondet_bigint3,
     bigint_mul,
 )
-from alt_bn128_def import P0, P1, P2
+from src.curve import P0, P1, P2
 
 // FIELD STRUCTURES
 struct FQ2 {

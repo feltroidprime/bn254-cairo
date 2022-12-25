@@ -5,8 +5,8 @@ from starkware.cairo.common.cairo_secp.bigint import (
     UnreducedBigInt5,
     bigint_mul,
 )
-from alt_bn128_field import is_zero, verify_zero5
-from alt_bn128_def import P0, P1, P2
+from src.field import is_zero, verify_zero5
+from src.curve import P0, P1, P2
 
 // Represents a point on the elliptic curve.
 // The zero point is represented using pt.x=0, as there is no point on the curve with this x value.

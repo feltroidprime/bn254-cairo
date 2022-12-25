@@ -7,7 +7,7 @@ from starkware.cairo.common.registers import get_ap, get_fp_and_pc
 // Import uint384 files (path may change in the future)
 
 from src.u255 import u255, Uint256, Uint512, Uint768, Uint384
-from src.alt_bn128_def import P_low, P_high
+from src.curve import P_low, P_high
 
 from starkware.cairo.common.uint256 import uint256_unsigned_div_rem, SHIFT
 
@@ -16,33 +16,42 @@ namespace fbn254 {
     // Assumes a+b < 2^256. If a and b both < PRIME, it is ok.
     func add{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
         let sum = u255.add(a, b);
-        return u255.a_modulo_p_255_19(sum);
+        return u255.a_modulo_bn254p(sum);
     }
     // Computes (a - b) modulo p .
-    // TODO : not tested for BN254
+    // NOTE: Expects a and b to be reduced modulo p (i.e. between 0 and p-1). The function will revert if a > p.
+    // NOTE: To reduce a, take the remainder of uint384_lin.unsigned_div_rem(a, p), and similarly for b.
+    // @dev First it computes res =(a-b) mod p in a hint and then checks outside of the hint that res + b = a modulo p
     func sub{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
         alloc_locals;
+        local res: Uint256;
+        let p = Uint256(P_low, P_high);
+        %{
+            def split(num: int, num_bits_shift: int, length: int):
+                a = []
+                for _ in range(length):
+                    a.append( num & ((1 << num_bits_shift) - 1) )
+                    num = num >> num_bits_shift
+                return tuple(a)
 
-        let b_neg = u255.neg(b);
-        let res = u255.add(a, b_neg);
-        let le = u255.lt(b, a);
+            def pack(z) -> int:
+                return z.low + (z.high << 128)
 
-        local Ya_min_Xa: Uint256;
+            a = pack(ids.a)
+            b = pack(ids.b)
+            p = pack(ids.p)
 
-        if (le == 0) {
-            let uiu = u255.a_modulo_2_255_19(res);
-            assert Ya_min_Xa.low = uiu.low;
-            assert Ya_min_Xa.high = uiu.high;
-            tempvar range_check_ptr = range_check_ptr;
-            //
-        } else {
-            assert Ya_min_Xa.low = res.low;
-            assert Ya_min_Xa.high = res.high - 2 ** 128;
-            tempvar range_check_ptr = range_check_ptr;
-        }
-        return Ya_min_Xa;
+            res = (a - b) % p
+
+            res_split = split(res, num_bits_shift=128, length=2)
+
+            ids.res.low = res_split[0]
+            ids.res.high = res_split[1]
+        %}
+        let b_plus_res: Uint256 = add(b, res);
+        assert b_plus_res = a;
+        return res;
     }
-
     // Computes a * b modulo p
     func mul{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
         let full_mul_result: Uint512 = u255.mul(a, b);
@@ -207,7 +216,7 @@ namespace fbn254 {
             if (is_a_lt_p == 1) {
                 return a;
             } else {
-                let remainder = u255.a_modulo_p_255_19(a);
+                let remainder = u255.a_modulo_bn254p(a);
                 return remainder;
             }
         }
@@ -234,89 +243,89 @@ namespace fbn254 {
     // 2. If (and only if not), then gx *is* a square (for g a generator of F_p^*), so find a square root r of it
     // 3. Check in Cairo that r**2 = x (mod p) or r**2 = gx (mod p), respectively
     // NOTE: The function assumes that 0 <= x < p
-    func get_square_root{range_check_ptr}(x: Uint256) -> (success: felt, res: Uint256) {
-        alloc_locals;
+    // func get_square_root{range_check_ptr}(x: Uint256) -> (success: felt, res: Uint256) {
+    //     alloc_locals;
 
-        // TODO: Create an equality function within field_arithmetic to avoid overflow bugs
-        let is_zero = u255.eq(x, Uint256(0, 0));
-        if (is_zero == 1) {
-            return (1, Uint256(0, 0));
-        }
-        // let x = Uint384(x.low, x.high, 0);
-        local p: Uint256 = Uint256(P_low, P_high);
+    // // TODO: Create an equality function within field_arithmetic to avoid overflow bugs
+    //     let is_zero = u255.eq(x, Uint256(0, 0));
+    //     if (is_zero == 1) {
+    //         return (1, Uint256(0, 0));
+    //     }
+    //     // let x = Uint384(x.low, x.high, 0);
+    //     local p: Uint256 = Uint256(P_low, P_high);
 
-        local generator: Uint256 = Uint256(P_min_1_div_2_low, P_min_1_div_2_high);
-        local success_x: felt;
-        local success_gx: felt;
-        local sqrt_x: Uint256;
-        local sqrt_gx: Uint256;
+    // local generator: Uint256 = Uint256(P_min_1_div_2_low, P_min_1_div_2_high);
+    //     local success_x: felt;
+    //     local success_gx: felt;
+    //     local sqrt_x: Uint256;
+    //     local sqrt_gx: Uint256;
 
-        // Compute square roots in a hint
-        // To whitelist
-        %{
-            from starkware.python.math_utils import is_quad_residue, sqrt
+    // // Compute square roots in a hint
+    //     // To whitelist
+    //     %{
+    //         from starkware.python.math_utils import is_quad_residue, sqrt
 
-            def split(a: int):
-                return (a & ((1 << 128) - 1), a >> 128)
+    // def split(a: int):
+    //             return (a & ((1 << 128) - 1), a >> 128)
 
-            def pack(z) -> int:
-                return z.low + (z.high << 128)
+    // def pack(z) -> int:
+    //             return z.low + (z.high << 128)
 
-            generator = pack(ids.generator)
-            x = pack(ids.x)
-            p = pack(ids.p)
+    // generator = pack(ids.generator)
+    //         x = pack(ids.x)
+    //         p = pack(ids.p)
 
-            success_x = is_quad_residue(x, p)
-            root_x = sqrt(x, p) if success_x else None
-            success_gx = is_quad_residue(generator*x, p)
-            root_gx = sqrt(generator*x, p) if success_gx else None
+    // success_x = is_quad_residue(x, p)
+    //         root_x = sqrt(x, p) if success_x else None
+    //         success_gx = is_quad_residue(generator*x, p)
+    //         root_gx = sqrt(generator*x, p) if success_gx else None
 
-            # Check that one is 0 and the other is 1
-            if x != 0:
-                assert success_x + success_gx == 1
+    // # Check that one is 0 and the other is 1
+    //         if x != 0:
+    //             assert success_x + success_gx == 1
 
-            # `None` means that no root was found, but we need to transform these into a felt no matter what
-            if root_x == None:
-                root_x = 0
-            if root_gx == None:
-                root_gx = 0
-            ids.success_x = int(success_x)
-            ids.success_gx = int(success_gx)
-            split_root_x = split(root_x)
-            print('split root x', split_root_x)
-            split_root_gx = split(root_gx)
-            ids.sqrt_x.low = split_root_x[0]
-            ids.sqrt_x.high = split_root_x[1]
-            ids.sqrt_gx.low = split_root_gx[0]
-            ids.sqrt_gx.high = split_root_gx[1]
-        %}
+    // # `None` means that no root was found, but we need to transform these into a felt no matter what
+    //         if root_x == None:
+    //             root_x = 0
+    //         if root_gx == None:
+    //             root_gx = 0
+    //         ids.success_x = int(success_x)
+    //         ids.success_gx = int(success_gx)
+    //         split_root_x = split(root_x)
+    //         print('split root x', split_root_x)
+    //         split_root_gx = split(root_gx)
+    //         ids.sqrt_x.low = split_root_x[0]
+    //         ids.sqrt_x.high = split_root_x[1]
+    //         ids.sqrt_gx.low = split_root_gx[0]
+    //         ids.sqrt_gx.high = split_root_gx[1]
+    //     %}
 
-        // Verify that the values computed in the hint are what they are supposed to be
-        %{ print_u_256_info(ids.sqrt_x, 'root') %}
-        let gx: Uint256 = mul(generator, x);
-        if (success_x == 1) {
-            let sqrt_x_squared: Uint256 = mul(sqrt_x, sqrt_x);
+    // // Verify that the values computed in the hint are what they are supposed to be
+    //     %{ print_u_256_info(ids.sqrt_x, 'root') %}
+    //     let gx: Uint256 = mul(generator, x);
+    //     if (success_x == 1) {
+    //         let sqrt_x_squared: Uint256 = mul(sqrt_x, sqrt_x);
 
-            // Note these checks may fail if the input x does not satisfy 0<= x < p
-            // TODO: Create a equality function within field_arithmetic to avoid overflow bugs
-            let check_x = u255.eq(x, sqrt_x_squared);
-            assert check_x = 1;
-        } else {
-            // In this case success_gx = 1
-            let sqrt_gx_squared: Uint256 = mul(sqrt_gx, sqrt_gx);
-            let check_gx = u255.eq(gx, sqrt_gx_squared);
-            assert check_gx = 1;
-        }
+    // // Note these checks may fail if the input x does not satisfy 0<= x < p
+    //         // TODO: Create a equality function within field_arithmetic to avoid overflow bugs
+    //         let check_x = u255.eq(x, sqrt_x_squared);
+    //         assert check_x = 1;
+    //     } else {
+    //         // In this case success_gx = 1
+    //         let sqrt_gx_squared: Uint256 = mul(sqrt_gx, sqrt_gx);
+    //         let check_gx = u255.eq(gx, sqrt_gx_squared);
+    //         assert check_gx = 1;
+    //     }
 
-        // Return the appropriate values
-        if (success_x == 0) {
-            // No square roots were found
-            // Note that Uint256(0, 0) is not a square root here, but something needs to be returned
-            return (0, Uint256(0, 0));
-        } else {
-            return (1, sqrt_x);
-        }
-    }
+    // // Return the appropriate values
+    //     if (success_x == 0) {
+    //         // No square roots were found
+    //         // Note that Uint256(0, 0) is not a square root here, but something needs to be returned
+    //         return (0, Uint256(0, 0));
+    //     } else {
+    //         return (1, sqrt_x);
+    //     }
+    // }
 
     // TODO: not tested
     // RIght now thid function expects a and be to be between 0 and p-1
@@ -333,47 +342,5 @@ namespace fbn254 {
         } else {
             return (0,);
         }
-    }
-    // computes x^((PRIME+3)/8) mod PRIME efficiently
-    func pow_prime_3_div_8{range_check_ptr}(x: Uint256) -> Uint256 {
-        alloc_locals;
-        // let P = Uint256(P_low, P_high);
-
-        let x2 = f25519.square(x);
-        let b2 = f25519.mul(x2, x);
-
-        let b4t = f25519.pow(b2, Uint256(2 ** 2, 0));
-        let b4 = f25519.mul(b4t, b2);
-
-        let b5t = f25519.pow(b4, Uint256(2, 0));
-        let b5 = f25519.mul(b5t, x);
-
-        let b10t = f25519.pow(b5, Uint256(2 ** 5, 0));
-        let b10 = f25519.mul(b10t, b5);
-
-        let b20t = f25519.pow(b10, Uint256(2 ** 10, 0));
-        let b20 = f25519.mul(b20t, b10);
-
-        let b40t = f25519.pow(b20, Uint256(2 ** 20, 0));
-        let b40 = f25519.mul(b40t, b20);
-
-        let b80t = f25519.pow(b40, Uint256(2 ** 40, 0));
-        let b80 = f25519.mul(b80t, b40);
-
-        let b160t = f25519.pow(b80, Uint256(2 ** 80, 0));
-        let b160 = f25519.mul(b160t, b80);
-
-        let b240t = f25519.pow(b160, Uint256(2 ** 80, 0));
-        let b240 = f25519.mul(b240t, b80);
-        let b250t = f25519.pow(b240, Uint256(2 ** 10, 0));
-        let b250 = f25519.mul(b250t, b10);
-        %{ print_u_256_info(ids.b250, "b250") %}
-        let pow_p_5_8t = f25519.pow(b250, Uint256(2 ** 2, 0));
-        %{ print_u_256_info(ids.pow_p_5_8t, "pow_p_5_8t") %}
-
-        let pow_p_5_8 = f25519.mul(pow_p_5_8t, x2);
-        %{ print_u_256_info(ids.pow_p_5_8, "pow_p_5_8") %}
-
-        return pow_p_5_8;
     }
 }

@@ -10,20 +10,21 @@ struct FQ2 {
 }
 
 namespace fq2 {
-    func add{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(x: FQ2, y: FQ2) -> (sum_mod: FQ2) {
+    func add{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(x: FQ2, y: FQ2) -> FQ2 {
         // TODO: check why these alloc_locals need to be used
         alloc_locals;
-        let (e0: Uint256) = fbn254.add(x.e0, y.e0);
-        let (e1: Uint256) = fbn254.add(x.e1, y.e1);
-
-        return (FQ2(e0=e0, e1=e1),);
+        let e0: Uint256 = fbn254.add(x.e0, y.e0);
+        let e1: Uint256 = fbn254.add(x.e1, y.e1);
+        let res = FQ2(e0=e0, e1=e1);
+        return res;
     }
 
-    func sub{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(x: FQ2, y: FQ2) -> (sum_mod: FQ2) {
+    func sub{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(x: FQ2, y: FQ2) -> FQ2 {
         alloc_locals;
-        let (e0: Uint384) = fbn254.sub(x.e0, y.e0);
-        let (e1: Uint384) = fbn254.sub(x.e1, y.e1);
-        return (FQ2(e0=e0, e1=e1),);
+        let e0: Uint256 = fbn254.sub(x.e0, y.e0);
+        let e1: Uint256 = fbn254.sub(x.e1, y.e1);
+        let res = FQ2(e0=e0, e1=e1);
+        return res;
     }
 
     // Multiplies an element of FQ2 by an element of FQ
@@ -31,31 +32,33 @@ namespace fq2 {
         product: FQ2
     ) {
         alloc_locals;
-        let (e0: Uint384) = fbn254.mul(x, y.e0);
-        let (e1: Uint384) = fbn254.mul(x, y.e1);
+        let e0: Uint256 = fbn254.mul(x, y.e0);
+        let e1: Uint256 = fbn254.mul(x, y.e1);
 
-        return (FQ2(e0=e0, e1=e1),);
+        let res = FQ2(e0=e0, e1=e1);
+        return res;
     }
 
     func mul{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(a: FQ2, b: FQ2) -> FQ2 {
         alloc_locals;
-        let (first_term: Uint256) = fbn254.mul(a.e0, b.e0);
-        let (b_0_1: Uint256) = fbn254.mul(a.e0, b.e1);
-        let (b_1_0: Uint256) = fbn254.mul(a.e1, b.e0);
-        let (second_term: Uint256) = fbn254.add(b_0_1, b_1_0);
-        let (third_term: Uint256) = fbn254.mul(a.e1, b.e1);
+        let first_term: Uint256 = fbn254.mul(a.e0, b.e0);
+        let b_0_1: Uint256 = fbn254.mul(a.e0, b.e1);
+        let b_1_0: Uint256 = fbn254.mul(a.e1, b.e0);
+        let second_term: Uint256 = fbn254.add(b_0_1, b_1_0);
+        let third_term: Uint256 = fbn254.mul(a.e1, b.e1);
 
         // Using the irreducible polynomial x**2 + 1 as modulus, we get that
         // x**2 = -1, so the term `a.e1 * b.e1 * x**2` becomes
         // `- a.e1 * b.e1` (always reducing mod p). This way the first term of
         // the multiplicaiton is `a.e0 * b.e0 - a.e1 * b.e1`
-        let (first_term) = fbn254.sub(first_term, third_term);
+        let first_term = fbn254.sub(first_term, third_term);
 
         let res = FQ2(first_term, second_term);
         return res;
     }
 
     func div_by_2{range_check_ptr}(a: FQ2) -> FQ2 {
+        alloc_locals;
         let new_x: Uint256 = fbn254.div(a.e0, Uint256(2, 0));
         let new_y: Uint256 = fbn254.div(a.e1, Uint256(2, 0));
 
