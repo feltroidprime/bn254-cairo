@@ -1,7 +1,7 @@
 from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math_cmp import is_le
 
-from src.alt_bn128_def import P_low, P_high
+from src.curve import P_low, P_high
 
 const SHIFT = 2 ** 128;
 const ALL_ONES = 2 ** 128 - 1;
@@ -483,33 +483,33 @@ namespace u255 {
         return res;
     }
     //
-    func super_sub{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
-        alloc_locals;
+    // func super_sub{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
+    //     alloc_locals;
 
-        let b_neg = neg(b);
-        let res = add(a, b_neg);
-        // begin
+    // let b_neg = neg(b);
+    //     let res = add(a, b_neg);
+    //     // begin
 
-        let le = lt(b, a);
+    // let le = lt(b, a);
 
-        local Ya_min_Xa: Uint256;
+    // local Ya_min_Xa: Uint256;
 
-        if (le == 0) {
-            let uiu = a_modulo_2_255_19(res);
-            assert Ya_min_Xa.low = uiu.low;
-            assert Ya_min_Xa.high = uiu.high;
-            tempvar range_check_ptr = range_check_ptr;
-            //
-        } else {
-            assert Ya_min_Xa.low = res.low;
-            assert Ya_min_Xa.high = res.high - 2 ** 128;
-            tempvar range_check_ptr = range_check_ptr;
-        }
-        // %{ print_u_256_info(ids.Ya_min_Xa, 'Ya_min_xa') %}
+    // if (le == 0) {
+    //         let uiu = a_modulo_2_255_19(res);
+    //         assert Ya_min_Xa.low = uiu.low;
+    //         assert Ya_min_Xa.high = uiu.high;
+    //         tempvar range_check_ptr = range_check_ptr;
+    //         //
+    //     } else {
+    //         assert Ya_min_Xa.low = res.low;
+    //         assert Ya_min_Xa.high = res.high - 2 ** 128;
+    //         tempvar range_check_ptr = range_check_ptr;
+    //     }
+    //     // %{ print_u_256_info(ids.Ya_min_Xa, 'Ya_min_xa') %}
 
-        // end
-        return Ya_min_Xa;
-    }
+    // // end
+    //     return Ya_min_Xa;
+    // }
     func eq{range_check_ptr}(a: Uint256, b: Uint256) -> felt {
         // Checks low first.
         if (a.low != b.low) {

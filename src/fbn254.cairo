@@ -25,7 +25,7 @@ namespace fbn254 {
     func sub{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
         alloc_locals;
         local res: Uint256;
-        let p = Uint256(P_low, P_high);
+        local p: Uint256 = Uint256(P_low, P_high);
         %{
             def split(num: int, num_bits_shift: int, length: int):
                 a = []
