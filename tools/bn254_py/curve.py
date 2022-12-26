@@ -28,11 +28,12 @@ CurveType = WEIERSTRASS
 CurveCof = 1
 
 SexticTwist = D_TYPE
-SignOfX = NEGATIVEX
+SignOfX = 1
 PairingFriendly = BN
 QNRI = 0
 
-x = 0x4080000000000001
+x = 0x4080000000000001 # WRONG ! 
+x = 4965661367192848881
 if SignOfX == NEGATIVEX:
     p = 36 * x * x * x * x - 36 * x * x * x + 24 * x * x - 6 * x + 1
 else:
