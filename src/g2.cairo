@@ -6,13 +6,25 @@ from starkware.cairo.common.cairo_secp.bigint import (
     nondet_bigint3,
     UnreducedBigInt5,
     bigint_mul,
+    bigint_to_uint256,
+    uint256_to_bigint,
 )
 from src.field import is_zero, verify_zero5
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 
+struct FQ2_ {
+    e0: BigInt3,
+    e1: BigInt3,
+}
+
 struct G2Point {
     x: FQ2,
     y: FQ2,
+}
+
+struct G2Point_ {
+    x: FQ2_,
+    y: FQ2_,
 }
 
 struct G2JacobPoint {
@@ -21,18 +33,29 @@ struct G2JacobPoint {
     z: FQ2,
 }
 
-func g2_negone() -> (res: G2Point) {
-    return (
-        G2Point(
-        FQ2(
-            BigInt3(d0=37301332318871981678327533, d1=1933688095072267321168861, d2=1813645754675075253282464),
-            BigInt3(d0=50657168248156029357068994, d1=75996009454876762764004566, d2=1931027739743020521039371)),
-        FQ2(
-            BigInt3(d0=55568417236596615360446365, d1=20361937528170921243484528, d2=2237202444931152845658701),
-            BigInt3(d0=75234859396250709295523308, d1=58200249186681967413131230, d2=2974432145097327839591194))),
-    );
+// func ec_point_to_affine{range_check_ptr}(p: EcPoint) -> AffinePoint {
+//     alloc_locals;
+//     let (x_256) = bigint_to_uint256(p.x);
+//     let (y_256) = bigint_to_uint256(p.y);
+//     let res = AffinePoint(x_256, y_256);
+//     return res;
+// }
+
+func FQ2_to_FQ2_{range_check_ptr}(p: FQ2) -> FQ2_ {
+    alloc_locals;
+    let (e0_Bigint) = uint256_to_bigint(p.e0);
+    let (e1_Bigint) = uint256_to_bigint(p.e1);
+    let res = FQ2_(e0_Bigint, e1_Bigint);
+    return res;
 }
 
+func affine_to_ec_point{range_check_ptr}(p: G2Point) -> G2Point_ {
+    alloc_locals;
+    let x_Bigint = FQ2_to_FQ2_(p.x);
+    let y_Bigint = FQ2_to_FQ2_(p.y);
+    let res = G2Point_(x_Bigint, y_Bigint);
+    return res;
+}
 // Returns the slope of the elliptic curve at the given point.
 // The slope is used to compute pt + pt.
 // Assumption: pt != 0.
@@ -58,11 +81,12 @@ namespace g2_weierstrass_arithmetics {
 
         verify_zero5(
             UnreducedBigInt5(
-            d0=3 * x_sqr.d0 - 2 * slope_y.d0,
-            d1=3 * x_sqr.d1 - 2 * slope_y.d1,
-            d2=3 * x_sqr.d2 - 2 * slope_y.d2,
-            d3=3 * x_sqr.d3 - 2 * slope_y.d3,
-            d4=3 * x_sqr.d4 - 2 * slope_y.d4),
+                d0=3 * x_sqr.d0 - 2 * slope_y.d0,
+                d1=3 * x_sqr.d1 - 2 * slope_y.d1,
+                d2=3 * x_sqr.d2 - 2 * slope_y.d2,
+                d3=3 * x_sqr.d3 - 2 * slope_y.d3,
+                d4=3 * x_sqr.d4 - 2 * slope_y.d4,
+            ),
         );
 
         return (slope=slope);
@@ -76,10 +100,13 @@ namespace g2_weierstrass_arithmetics {
     ) -> FQ2 {
         alloc_locals;
         local slope: FQ2;
+        local slope_: FQ2_;
+        local x_diff__: FQ2_;
+        local x_diff_: FQ2_;
         %{
             from starkware.python.math_utils import div_mod
             from starkware.cairo.common.math_utils import as_int
-
+            BASE=2**86
             prime = 2**251 + 17*2**192 + 1
             P = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
             # Compute the slope.
@@ -95,6 +122,8 @@ namespace g2_weierstrass_arithmetics {
                 """
                 limbs_real = z.e0.d0, z.e0.d1, z.e0.d2
                 limbs_imag = z.e1.d0, z.e1.d1, z.e1.d2
+                print(limbs_real)
+                print(limbs_imag)
                 return (sum(as_int(limb, prime) * (BASE**i) for i, limb in enumerate(limbs_real)), 
                 sum(as_int(limb, prime) * (BASE**i) for i, limb in enumerate(limbs_imag)))
 
@@ -127,43 +156,67 @@ namespace g2_weierstrass_arithmetics {
 
             print(value)
 
-
             # value = slope = div_mod(y0 - y1, x0 - x1, P)
         %}
 
-        // let (slope) = nondet_bigint3();
+        let pt0_ = affine_to_ec_point(pt0);
+        let pt1_ = affine_to_ec_point(pt1);
 
         let x_diff_real = BigInt3(
-            d0=pt0.x.e0.d0 - pt1.x.e0.d0, d1=pt0.x.e0.d1 - pt1.x.e0.d1, d2=pt0.x.e0.d2 - pt1.x.e0.d2
+            d0=pt0_.x.e0.d0 - pt1_.x.e0.d0,
+            d1=pt0_.x.e0.d1 - pt1_.x.e0.d1,
+            d2=pt0_.x.e0.d2 - pt1_.x.e0.d2,
         );
         let x_diff_imag = BigInt3(
-            d0=pt0.x.e1.d0 - pt1.x.e1.d0, d1=pt0.x.e1.d1 - pt1.x.e1.d1, d2=pt0.x.e1.d2 - pt1.x.e1.d2
+            d0=pt0_.x.e1.d0 - pt1_.x.e1.d0,
+            d1=pt0_.x.e1.d1 - pt1_.x.e1.d1,
+            d2=pt0_.x.e1.d2 - pt1_.x.e1.d2,
         );
 
-        let x_diff = fq2.sub(pt0.x, pt1.x);
-        %{ print("U=",pack_fq2_uint256(ids.x_diff)) %}
-        %{ print("slope=",pack_fq2_uint256(ids.slope)) %}
+        assert x_diff__.e0 = x_diff_real;
+        assert x_diff__.e1 = x_diff_imag;
 
-        let x_diff_slope: FQ2 = fq2.mul(x_diff, slope);
-        %{ print("x_diff_slope=",pack_fq2_uint256(ids.x_diff_slope)) %}
+        let x_diff_ = x_diff__;
+        %{
+            # print('X_DIFF_256',pack_fq2_uint256(ids.x_diff))
+            print('X_DIFF_BIGINT3',pack_fq2_bigint3(ids.x_diff_))
+            print('X_DIFF__BIGINT3',pack_fq2_bigint3(ids.x_diff__))
+        %}
 
-        // let (x_diff_slope: UnreducedBigInt5) = bigint_mul(x_diff_real, slope);
-        let to_assert = fq2.sub(x_diff_slope, pt0.y);
-        %{ print("x_diff_xlope - y0 = ", pack_fq2_uint256(ids.to_assert)) %}
-        let to_assert: FQ2 = fq2.add(to_assert, pt1.y);
-        %{ print("x_diff_slope - y0 + y1=",pack_fq2_uint256(ids.to_assert)) %}
-        assert to_assert.e0.low = 0;
-        assert to_assert.e0.high = 0;
-        assert to_assert.e1.low = 0;
-        assert to_assert.e1.high = 0;
-        // verify_zero5(
-        //     UnreducedBigInt5(
-        //     d0=x_diff_slope.d0 - pt0.y.d0 + pt1.y.d0,
-        //     d1=x_diff_slope.d1 - pt0.y.d1 + pt1.y.d1,
-        //     d2=x_diff_slope.d2 - pt0.y.d2 + pt1.y.d2,
-        //     d3=x_diff_slope.d3,
-        //     d4=x_diff_slope.d4),
-        // );
+        // assert x_diff_ = x_diff__;
+
+        let slope_ = FQ2_to_FQ2_(slope);
+        let x_diff_slope_imag_first_term: UnreducedBigInt5 = bigint_mul(x_diff_.e0, slope_.e1);
+        let x_diff_slope_imag_second_term: UnreducedBigInt5 = bigint_mul(x_diff_.e1, slope_.e0);
+
+        let x_diff_real_first_term: UnreducedBigInt5 = bigint_mul(x_diff_.e0, slope_.e0);
+        let x_diff_real_second_term: UnreducedBigInt5 = bigint_mul(x_diff_.e1, slope_.e1);
+
+        verify_zero5(
+            UnreducedBigInt5(
+                d0=x_diff_slope_imag_first_term.d0 + x_diff_slope_imag_second_term.d0 -
+                pt0_.y.e1.d0 + pt1_.y.e1.d0,
+                d1=x_diff_slope_imag_first_term.d1 + x_diff_slope_imag_second_term.d1 -
+                pt0_.y.e1.d1 + pt1_.y.e1.d1,
+                d2=x_diff_slope_imag_first_term.d2 + x_diff_slope_imag_second_term.d2 -
+                pt0_.y.e1.d2 + pt1_.y.e1.d2,
+                d3=x_diff_slope_imag_first_term.d3 + x_diff_slope_imag_second_term.d3,
+                d4=x_diff_slope_imag_first_term.d4 + x_diff_slope_imag_second_term.d4,
+            ),
+        );
+
+        verify_zero5(
+            UnreducedBigInt5(
+                d0=x_diff_real_first_term.d0 - x_diff_real_second_term.d0 - pt0_.y.e0.d0 +
+                pt1_.y.e0.d0,
+                d1=x_diff_real_first_term.d1 - x_diff_real_second_term.d1 - pt0_.y.e0.d1 +
+                pt1_.y.e0.d1,
+                d2=x_diff_real_first_term.d2 - x_diff_real_second_term.d2 - pt0_.y.e0.d2 +
+                pt1_.y.e0.d2,
+                d3=x_diff_real_first_term.d3 - x_diff_real_second_term.d3,
+                d4=x_diff_real_first_term.d4 - x_diff_real_second_term.d4,
+            ),
+        );
 
         return slope;
     }
@@ -198,11 +251,12 @@ namespace g2_weierstrass_arithmetics {
 
         verify_zero5(
             UnreducedBigInt5(
-            d0=slope_sqr.d0 - new_x.d0 - 2 * pt.x.d0,
-            d1=slope_sqr.d1 - new_x.d1 - 2 * pt.x.d1,
-            d2=slope_sqr.d2 - new_x.d2 - 2 * pt.x.d2,
-            d3=slope_sqr.d3,
-            d4=slope_sqr.d4),
+                d0=slope_sqr.d0 - new_x.d0 - 2 * pt.x.d0,
+                d1=slope_sqr.d1 - new_x.d1 - 2 * pt.x.d1,
+                d2=slope_sqr.d2 - new_x.d2 - 2 * pt.x.d2,
+                d3=slope_sqr.d3,
+                d4=slope_sqr.d4,
+            ),
         );
 
         let (x_diff_slope: UnreducedBigInt5) = bigint_mul(
@@ -211,11 +265,12 @@ namespace g2_weierstrass_arithmetics {
 
         verify_zero5(
             UnreducedBigInt5(
-            d0=x_diff_slope.d0 - pt.y.d0 - new_y.d0,
-            d1=x_diff_slope.d1 - pt.y.d1 - new_y.d1,
-            d2=x_diff_slope.d2 - pt.y.d2 - new_y.d2,
-            d3=x_diff_slope.d3,
-            d4=x_diff_slope.d4),
+                d0=x_diff_slope.d0 - pt.y.d0 - new_y.d0,
+                d1=x_diff_slope.d1 - pt.y.d1 - new_y.d1,
+                d2=x_diff_slope.d2 - pt.y.d2 - new_y.d2,
+                d3=x_diff_slope.d3,
+                d4=x_diff_slope.d4,
+            ),
         );
 
         return (G2Point(new_x, new_y),);
@@ -262,11 +317,12 @@ namespace g2_weierstrass_arithmetics {
 
         verify_zero5(
             UnreducedBigInt5(
-            d0=slope_sqr.d0 - new_x.d0 - pt0.x.d0 - pt1.x.d0,
-            d1=slope_sqr.d1 - new_x.d1 - pt0.x.d1 - pt1.x.d1,
-            d2=slope_sqr.d2 - new_x.d2 - pt0.x.d2 - pt1.x.d2,
-            d3=slope_sqr.d3,
-            d4=slope_sqr.d4),
+                d0=slope_sqr.d0 - new_x.d0 - pt0.x.d0 - pt1.x.d0,
+                d1=slope_sqr.d1 - new_x.d1 - pt0.x.d1 - pt1.x.d1,
+                d2=slope_sqr.d2 - new_x.d2 - pt0.x.d2 - pt1.x.d2,
+                d3=slope_sqr.d3,
+                d4=slope_sqr.d4,
+            ),
         );
 
         let (x_diff_slope: UnreducedBigInt5) = bigint_mul(
@@ -275,11 +331,12 @@ namespace g2_weierstrass_arithmetics {
 
         verify_zero5(
             UnreducedBigInt5(
-            d0=x_diff_slope.d0 - pt0.y.d0 - new_y.d0,
-            d1=x_diff_slope.d1 - pt0.y.d1 - new_y.d1,
-            d2=x_diff_slope.d2 - pt0.y.d2 - new_y.d2,
-            d3=x_diff_slope.d3,
-            d4=x_diff_slope.d4),
+                d0=x_diff_slope.d0 - pt0.y.d0 - new_y.d0,
+                d1=x_diff_slope.d1 - pt0.y.d1 - new_y.d1,
+                d2=x_diff_slope.d2 - pt0.y.d2 - new_y.d2,
+                d3=x_diff_slope.d3,
+                d4=x_diff_slope.d4,
+            ),
         );
 
         return (G2Point(new_x, new_y),);
@@ -438,14 +495,22 @@ func get_g22_generator{range_check_ptr}() -> G2Point {
 func g2() -> (res: G2Point) {
     return (
         res=G2Point(
-        x=FQ2(
-            e0=BigInt3(0x1edadd46debd5cd992f6ed, 0x199797111e59d0c8b53dd, 0x1800deef121f1e76426a0),
-            e1=BigInt3(0x29e71297e485b7aef312c2, 0x3edcc7ed7497c6a924ccd6, 0x198e9393920d483a7260b),
+            x=FQ2(
+                e0=BigInt3(
+                    0x1edadd46debd5cd992f6ed, 0x199797111e59d0c8b53dd, 0x1800deef121f1e76426a0
+                ),
+                e1=BigInt3(
+                    0x29e71297e485b7aef312c2, 0x3edcc7ed7497c6a924ccd6, 0x198e9393920d483a7260b
+                ),
             ),
-        y=FQ2(
-            e0=BigInt3(0x3d37b4ce6cc0166fa7daa, 0x602372d023f8f479da431, 0x12c85ea5db8c6deb4aab7),
-            e1=BigInt3(0x338ef355acdadcd122975b, 0x26b5a430ce56f12cc4cdc2, 0x90689d0585ff075ec9e9),
-            )
+            y=FQ2(
+                e0=BigInt3(
+                    0x3d37b4ce6cc0166fa7daa, 0x602372d023f8f479da431, 0x12c85ea5db8c6deb4aab7
+                ),
+                e1=BigInt3(
+                    0x338ef355acdadcd122975b, 0x26b5a430ce56f12cc4cdc2, 0x90689d0585ff075ec9e9
+                ),
+            ),
         ),
     );
 }
