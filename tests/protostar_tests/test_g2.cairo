@@ -101,3 +101,14 @@ func test_compute_slope{
 
     return ();
 }
+
+@external
+func test_doubling_slope{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}() {
+    __setup__();
+    let G2: G2Point = get_g2_generator();
+    let res = g2_weierstrass_arithmetics.compute_doubling_slope(G2);
+
+    return ();
+}

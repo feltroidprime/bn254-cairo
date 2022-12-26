@@ -60,36 +60,111 @@ func affine_to_ec_point{range_check_ptr}(p: G2Point) -> G2Point_ {
 // The slope is used to compute pt + pt.
 // Assumption: pt != 0.
 namespace g2_weierstrass_arithmetics {
-    func compute_doubling_slope{range_check_ptr}(pt: G2Point) -> (slope: BigInt3) {
+    func compute_doubling_slope{range_check_ptr}(pt: G2Point) -> FQ2_ {
         // Note that y cannot be zero: assume that it is, then pt = -pt, so 2 * pt = 0, which
         // contradicts the fact that the size of the curve is odd.
+        alloc_locals;
+        local slope: FQ2_;
         %{
             from starkware.cairo.common.cairo_secp.secp_utils import pack
             from starkware.python.math_utils import div_mod
+            from bn254 import Fp2, Fp
 
             P = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+            def pack_fq2_uint256(z):
+                return (z.e0.low + (z.e0.high << 128), z.e1.low + (z.e1.high << 128))
 
-            # Compute the slope.
-            x = pack(ids.pt.x, PRIME)
-            y = pack(ids.pt.y, PRIME)
-            value = slope = div_mod(3 * x ** 2, 2 * y, P)
+            def pack_fq2_bigint3(z):
+                """
+                Takes an UnreducedBigInt3 struct which represents a triple of limbs (d0, d1, d2) of field
+                elements and reconstructs the corresponding 256-bit integer (see split()).
+                Note that the limbs do not have to be in the range [0, BASE).
+                prime should be the Cairo field, and it is used to handle negative values of the limbs.
+                """
+                limbs_real = z.e0.d0, z.e0.d1, z.e0.d2
+                limbs_imag = z.e1.d0, z.e1.d1, z.e1.d2
+                print(limbs_real)
+                print(limbs_imag)
+                return (sum(as_int(limb, prime) * (BASE**i) for i, limb in enumerate(limbs_real)), 
+                sum(as_int(limb, prime) * (BASE**i) for i, limb in enumerate(limbs_imag)))
+            def split_128(a):
+                return (a & ((1 << 128) - 1), a >> 128)
+            def to_bigint(a):
+
+                RC_BOUND = 2 ** 128
+                BASE = 2**86
+                low, high = split_128(a)
+                D1_HIGH_BOUND = BASE ** 2 // RC_BOUND
+                D1_LOW_BOUND = RC_BOUND // BASE
+                d1_low, d0 = divmod(low, BASE)
+                d2, d1_high = divmod(high, D1_HIGH_BOUND)
+                d1 = d1_high * D1_LOW_BOUND + d1_low
+
+                return (d0, d1, d2)
+
+            x = pack_fq2_uint256(ids.pt.x)
+            y = pack_fq2_uint256(ids.pt.y)
+
+            x=Fp2(Fp(x[0]), Fp(x[1]))
+            y=Fp2(Fp(y[0]), Fp(y[1]))
+
+            num=Fp2(Fp(3))*x*x
+            sub=Fp2(Fp(2))*y
+            sub_inv= sub.inverse()
+            value = num * sub_inv
+
+            e0=to_bigint(value.a.x)
+            e1=to_bigint(value.b.x)
+            ids.slope.e0.d0 = e0[0]
+            ids.slope.e0.d1 = e0[1]
+            ids.slope.e0.d2 = e0[2]
+            ids.slope.e1.d0 = e1[0]
+            ids.slope.e1.d1 = e1[1]
+            ids.slope.e1.d2 = e1[2]
+
+            # value = div_mod(3 * x ** 2, 2 * y, P)
         %}
-        let (slope: BigInt3) = nondet_bigint3();
+        let pt_ = affine_to_ec_point(pt);
+        let a0_a1: UnreducedBigInt5 = bigint_mul(pt_.x.e0, pt_.x.e1);
+        let a0_sqr: UnreducedBigInt5 = bigint_mul(pt_.x.e0, pt_.x.e0);
+        let a1_sqr: UnreducedBigInt5 = bigint_mul(pt_.x.e1, pt_.x.e1);
 
-        let (x_sqr: UnreducedBigInt5) = bigint_mul(pt.x, pt.x);
-        let (slope_y: UnreducedBigInt5) = bigint_mul(slope, pt.y);
+        let slope_y_imag_first_term: UnreducedBigInt5 = bigint_mul(slope.e0, pt_.y.e1);
+        let slope_y_imag_second_term: UnreducedBigInt5 = bigint_mul(slope.e1, pt_.y.e0);
+
+        let slope_y_real_first_term: UnreducedBigInt5 = bigint_mul(slope.e0, pt_.y.e0);
+        let slope_y_real_second_term: UnreducedBigInt5 = bigint_mul(slope.e1, pt_.y.e1);
 
         verify_zero5(
             UnreducedBigInt5(
-                d0=3 * x_sqr.d0 - 2 * slope_y.d0,
-                d1=3 * x_sqr.d1 - 2 * slope_y.d1,
-                d2=3 * x_sqr.d2 - 2 * slope_y.d2,
-                d3=3 * x_sqr.d3 - 2 * slope_y.d3,
-                d4=3 * x_sqr.d4 - 2 * slope_y.d4,
+                d0=2 * (3 * a0_a1.d0 - slope_y_imag_first_term.d0 - slope_y_imag_second_term.d0),
+                d1=2 * (3 * a0_a1.d1 - slope_y_imag_first_term.d1 - slope_y_imag_second_term.d1),
+                d2=2 * (3 * a0_a1.d2 - slope_y_imag_first_term.d2 - slope_y_imag_second_term.d2),
+                d3=2 * (3 * a0_a1.d3 - slope_y_imag_first_term.d3 - slope_y_imag_second_term.d3),
+                d4=2 * (3 * a0_a1.d4 - slope_y_imag_first_term.d4 - slope_y_imag_second_term.d4),
             ),
         );
 
-        return (slope=slope);
+        verify_zero5(
+            UnreducedBigInt5(
+                d0=3 * (a0_sqr.d0 - a1_sqr.d0) - 2 * (
+                    slope_y_real_first_term.d0 - slope_y_real_second_term.d0
+                ),
+                d1=3 * (a0_sqr.d1 - a1_sqr.d1) - 2 * (
+                    slope_y_real_first_term.d1 - slope_y_real_second_term.d1
+                ),
+                d2=3 * (a0_sqr.d2 - a1_sqr.d2) - 2 * (
+                    slope_y_real_first_term.d2 - slope_y_real_second_term.d2
+                ),
+                d3=3 * (a0_sqr.d3 - a1_sqr.d3) - 2 * (
+                    slope_y_real_first_term.d3 - slope_y_real_second_term.d3
+                ),
+                d4=3 * (a0_sqr.d4 - a1_sqr.d4) - 2 * (
+                    slope_y_real_first_term.d4 - slope_y_real_second_term.d4
+                ),
+            ),
+        );
+        return slope;
     }
 
     // Returns the slope of the line connecting the two given points.
@@ -97,7 +172,7 @@ namespace g2_weierstrass_arithmetics {
     // Assumption: pt0.x != pt1.x (mod field prime).
     func compute_slope{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
         pt0: G2Point, pt1: G2Point
-    ) -> FQ2 {
+    ) -> FQ2_ {
         alloc_locals;
         local slope: FQ2;
         local slope_: FQ2_;
@@ -218,7 +293,7 @@ namespace g2_weierstrass_arithmetics {
             ),
         );
 
-        return slope;
+        return slope_;
     }
 
     // Given a point 'pt' on the elliptic curve, computes pt + pt.
@@ -231,7 +306,7 @@ namespace g2_weierstrass_arithmetics {
             }
         }
 
-        let (slope: BigInt3) = compute_doubling_slope(pt);
+        let (slope: FQ2_) = compute_doubling_slope(pt);
         let (slope_sqr: UnreducedBigInt5) = bigint_mul(slope, slope);
 
         %{
