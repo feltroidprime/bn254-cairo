@@ -73,7 +73,7 @@ namespace g2_weierstrass_arithmetics {
     // Assumption: pt0.x != pt1.x (mod field prime).
     func compute_slope{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
         pt0: G2Point, pt1: G2Point
-    ) -> (slope: FQ2) {
+    ) -> FQ2 {
         alloc_locals;
         local slope: FQ2;
         %{
@@ -133,9 +133,12 @@ namespace g2_weierstrass_arithmetics {
 
         // let (slope) = nondet_bigint3();
 
-        // let x_diff_real = BigInt3(
-        //     d0=pt0.x.e0.d0 - pt1.x.d0, d1=pt0.x.d1 - pt1.x.d1, d2=pt0.x.d2 - pt1.x.d2
-        // );
+        let x_diff_real = BigInt3(
+            d0=pt0.x.e0.d0 - pt1.x.e0.d0, d1=pt0.x.e0.d1 - pt1.x.e0.d1, d2=pt0.x.e0.d2 - pt1.x.e0.d2
+        );
+        let x_diff_imag = BigInt3(
+            d0=pt0.x.e1.d0 - pt1.x.e1.d0, d1=pt0.x.e1.d1 - pt1.x.e1.d1, d2=pt0.x.e1.d2 - pt1.x.e1.d2
+        );
 
         let x_diff = fq2.sub(pt0.x, pt1.x);
         %{ print("U=",pack_fq2_uint256(ids.x_diff)) %}
@@ -149,6 +152,10 @@ namespace g2_weierstrass_arithmetics {
         %{ print("x_diff_xlope - y0 = ", pack_fq2_uint256(ids.to_assert)) %}
         let to_assert: FQ2 = fq2.add(to_assert, pt1.y);
         %{ print("x_diff_slope - y0 + y1=",pack_fq2_uint256(ids.to_assert)) %}
+        assert to_assert.e0.low = 0;
+        assert to_assert.e0.high = 0;
+        assert to_assert.e1.low = 0;
+        assert to_assert.e1.high = 0;
         // verify_zero5(
         //     UnreducedBigInt5(
         //     d0=x_diff_slope.d0 - pt0.y.d0 + pt1.y.d0,
@@ -158,7 +165,7 @@ namespace g2_weierstrass_arithmetics {
         //     d4=x_diff_slope.d4),
         // );
 
-        return (slope,);
+        return slope;
     }
 
     // Given a point 'pt' on the elliptic curve, computes pt + pt.
