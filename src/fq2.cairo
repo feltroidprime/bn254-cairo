@@ -41,19 +41,39 @@ namespace fq2 {
 
     func mul{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(a: FQ2, b: FQ2) -> FQ2 {
         alloc_locals;
-        let first_term: Uint256 = fbn254.mul(a.e0, b.e0);
-        let b_0_1: Uint256 = fbn254.mul(a.e0, b.e1);
-        let b_1_0: Uint256 = fbn254.mul(a.e1, b.e0);
-        let second_term: Uint256 = fbn254.add(b_0_1, b_1_0);
-        let third_term: Uint256 = fbn254.mul(a.e1, b.e1);
+        let t1 = fbn254.mul(a.e0, b.e0);
+        let t2 = fbn254.mul(a.e1, b.e1);
+        let t3 = fbn254.add(b.e0, b.e1);
+        %{
+            print_u_256_info(ids.a.e0,"a.e0")
+            print_u_256_info(ids.b.e0,"b.e0")
 
-        // Using the irreducible polynomial x**2 + 1 as modulus, we get that
-        // x**2 = -1, so the term `a.e1 * b.e1 * x**2` becomes
-        // `- a.e1 * b.e1` (always reducing mod p). This way the first term of
-        // the multiplicaiton is `a.e0 * b.e0 - a.e1 * b.e1`
-        let first_term = fbn254.sub(first_term, third_term);
+            print_u_256_info(ids.t1,"t1")
+            print_u_256_info(ids.t2,"t2")    
+            print_u_256_info(ids.t3,"t3")
+        %}
+        let imag = fbn254.add(a.e1, a.e0);
+        let imag = fbn254.mul(imag, t3);
+        let imag = fbn254.sub(imag, t1);
+        let imag = fbn254.sub(imag, t2);
 
-        let res = FQ2(first_term, second_term);
+        let real = fbn254.sub(t1, t2);
+
+        let res: FQ2 = FQ2(real, imag);
+
+        // let first_term: Uint256 = fbn254.mul(a.e0, b.e0);
+        // let b_0_1: Uint256 = fbn254.mul(a.e0, b.e1);
+        // let b_1_0: Uint256 = fbn254.mul(a.e1, b.e0);
+        // let second_term: Uint256 = fbn254.add(b_0_1, b_1_0);
+        // let third_term: Uint256 = fbn254.mul(a.e1, b.e1);
+
+        // // Using the irreducible polynomial x**2 + 1 as modulus, we get that
+        // // x**2 = -1, so the term `a.e1 * b.e1 * x**2` becomes
+        // // `- a.e1 * b.e1` (always reducing mod p). This way the first term of
+        // // the multiplicaiton is `a.e0 * b.e0 - a.e1 * b.e1`
+        // let first_term = fbn254.sub(first_term, third_term);
+
+        // let res = FQ2(first_term, second_term);
         return res;
     }
 
