@@ -224,7 +224,7 @@ namespace g1_weierstrass_arithmetics {
             return (ZERO_POINT,);
         } else {
             // pt0.y = pt1.y.
-            return ec_double(pt0);
+            return double(pt0);
         }
     }
 
@@ -240,7 +240,7 @@ namespace g1_weierstrass_arithmetics {
         }
 
         alloc_locals;
-        let (double_pt: G1Point) = ec_double(pt);
+        let (double_pt: G1Point) = double(pt);
         %{ memory[ap] = (ids.scalar % PRIME) % 2 %}
         jmp odd if [ap] != 0, ap++;
         return ec_mul_inner(pt=double_pt, scalar=scalar / 2, m=m - 1);
@@ -263,8 +263,8 @@ namespace g1_weierstrass_arithmetics {
         let (pow2_0: G1Point, local res0: G1Point) = ec_mul_inner(pt, scalar.d0, 86);
         let (pow2_1: G1Point, local res1: G1Point) = ec_mul_inner(pow2_0, scalar.d1, 86);
         let (_, local res2: G1Point) = ec_mul_inner(pow2_1, scalar.d2, 84);
-        let (res: G1Point) = ec_add(res0, res1);
-        let (res: G1Point) = ec_add(res, res2);
+        let (res: G1Point) = add(res0, res1);
+        let (res: G1Point) = add(res, res2);
         return (res,);
     }
 }
