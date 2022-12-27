@@ -1,6 +1,6 @@
 import mclbn256 as mcl
 
-from bn254 import Fp2, Fp, ECp2, curve
+from bn254 import Fp2, Fp12, Fp4, Fp, ECp2, curve
 
 P=curve.p
 def xy(x):
@@ -8,10 +8,27 @@ def xy(x):
     print(xcord)
     return (int(xcord[0],16), int(xcord [1],16), int(xcord[2],16), int(xcord[3],16))
 
+def xyGT(x):
+    xcord=str(x.tostr()).replace("'",'').split(' ')
+    print(xcord)
+    return (int(xcord[0],16), int(xcord [1],16), int(xcord[2],16), int(xcord[3],16),
+    int(xcord[4],16), int(xcord[5],16), int(xcord[6],16), int(xcord[7],16),
+    int(xcord[8],16), int(xcord[9],16), int(xcord[10],16), int(xcord[11],16), 
+    )
+
 
 g2=mcl.G2.base_point()
+g1=mcl.G1.base_point()
 
 g22=g2.dbl()
+e_g1g2=g2.pairing(g1)
+ee=xyGT(e_g1g2)
+print('E(g1,g2)=', xyGT(e_g1g2))
+
+e_g1g2 = Fp12(
+    Fp4(Fp2(Fp(ee[0]), Fp(ee[1])), Fp2(Fp(ee[2]), Fp(ee[3]))),
+    Fp4(Fp2(Fp(ee[4]), Fp(ee[5])), Fp2(Fp(ee[6]), Fp(ee[7]))),
+    Fp4(Fp2(Fp(ee[8]), Fp(ee[9])), Fp2(Fp(ee[10]), Fp(ee[11]))))
 
 xyg2=xy(g2)
 r=xy(g22)

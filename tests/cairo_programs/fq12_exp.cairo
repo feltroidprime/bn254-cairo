@@ -1,27 +1,17 @@
-%lang starknet
-from starkware.cairo.common.cairo_builtins import HashBuiltin
+%builtins output range_check bitwise
+
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
-
 from starkware.cairo.common.uint256 import Uint256
-
-from starkware.cairo.common.cairo_secp.bigint import BigInt3, uint256_to_bigint, bigint_to_uint256
-from src.g2 import (
-    g2_arithmetics,
-    get_g2_generator,
-    get_g22_generator,
-    g2_weierstrass_arithmetics,
-    G2Point,
-    G2JacobPoint,
-)
-
-from src.u255 import Uint512
 from src.pair import get_e_G1G2
 from src.fq12 import FQ12, fq12_lib
 from src.uint384_extension import Uint768
+from src.u255 import Uint512
 
-@external
-func __setup__() {
+func main{output_ptr: felt*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}() {
+    // __setup__();
     %{
+        PRIME = 2**255-19
+
         def bin_c(u):
             b=bin(u)
             f = b[0:10] + ' ' + b[10:19] + '...' + b[-16:-8] + ' ' + b[-8:]
@@ -37,6 +27,23 @@ func __setup__() {
             little = '0b'+b[2:][::-1]
             f="0b"+' '.join([little[2:][i:i+8] for i in range(0, len(little[2:]), 8)])
             return f
+        def _inverse(x):
+            x=x.low + (x.high<<128)
+            print("to inverse:", x)
+            PRIME = 2**255-19
+            return pow(x, PRIME - 2, PRIME)
+        def print_from_extended(p):
+            x = p.x.low + (p.x.high<<128)
+            y = p.y.low + (p.y.high<<128)
+            z = p.z.low + (p.z.high<<128)
+            PRIME = 2**255-19
+
+            invZ = _inverse(p.z)
+            print("invz", invZ)
+            assert invZ * z % PRIME == 1
+
+            print(f"x={x*invZ%PRIME}")
+            print(f"y={y*invZ%PRIME}")
 
         def print_u_256_info(u, un):
             u = u.low + (u.high << 128) 
@@ -51,7 +58,11 @@ func __setup__() {
             print(f" {un}_{u.bit_length()}bits = {bin_8(u)}")
             print(f" {un} = {u}")
             print(f" {un} = {int.to_bytes(u, 8, 'little')}")
-
+        def print_felt_info_little(u, un):
+            print(f" {un}_{u.bit_length()}bits = {u.to_bytes(32, 'little')}")
+            print(f" {un}_{u.bit_length()}bits = {bin_8(u)}")
+            print(f" {un} = {u}")
+            print('\n')
         def print_u_512_info(u, un):
             u = u.d0 + (u.d1 << 128) + (u.d2<<256) + (u.d3<<384) 
             print(f" {un}_{u.bit_length()}bits = {bin_64(u)}")
@@ -77,72 +88,14 @@ func __setup__() {
 
             print_u_256_info(res, resn)
             print ('---------------------------------------------------------')
+
+        def print_u256_array_little(address, len):
+            for i in range(0, len):
+                print_felt_info_little(memory[address+2*i] + (memory[address + 2*i+1] << 128), str(i))
     %}
-    assert 1 = 1;
-    return ();
-}
 
-@external
-func test_double_g2{
-    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}() {
-    __setup__();
-    let G2: G2Point = get_g2_generator();
-    let G2_jacob = g2_arithmetics.to_jacobian(G2);
-
-    let res: G2JacobPoint = g2_arithmetics.double(G2_jacob);
-
-    return ();
-}
-
-@external
-func test_compute_slope{
-    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}() {
-    __setup__();
-    let G2: G2Point = get_g2_generator();
-    let G22: G2Point = get_g22_generator();
-    let res = g2_weierstrass_arithmetics.compute_slope(G22, G2);
-
-    return ();
-}
-
-@external
-func test_doubling_slope{
-    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}() {
-    __setup__();
-    let G2: G2Point = get_g2_generator();
-    let res = g2_weierstrass_arithmetics.compute_doubling_slope(G2);
-
-    return ();
-}
-
-@external
-func test_exponentiation{
-    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}() {
-    __setup__();
     let e_G1G2: FQ12 = get_e_G1G2();
-    let res = fq12_lib.pow(
-        e_G1G2,
-        Uint512(293983376318658591435695938547208530370, 21441254871061059013954019161742013129, 0, 0),
-    );
-
-    return ();
-}
-
-@external
-func test_fq12_mul{
-    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}() {
-    __setup__();
-    let e_G1G2: FQ12 = get_e_G1G2();
-    let res: FQ12 = fq12_lib.mul(e_G1G2, e_G1G2);
-
-    %{ print_u_256_info(ids.res.e0) %}
-    %{ print_u_256_info(ids.res.e1) %}
-    %{ print_u_256_info(ids.res.e2) %}
+    let res = fq12_lib.pow(e_G1G2, Uint512(2, 0, 0, 0));
 
     return ();
 }
