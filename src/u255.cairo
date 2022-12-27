@@ -520,6 +520,22 @@ namespace u255 {
         }
         return 1;
     }
+    func eq_512{range_check_ptr}(a: Uint512, b: Uint512) -> felt {
+        // Checks low first.
+        if (a.d0 != b.d0) {
+            return 0;
+        }
+        if (a.d1 != b.d1) {
+            return 0;
+        }
+        if (a.d2 != b.d2) {
+            return 0;
+        }
+        if (a.d3 != b.d3) {
+            return 0;
+        }
+        return 1;
+    }
     func split_64{range_check_ptr}(a: felt) -> (low: felt, high: felt) {
         alloc_locals;
         local low: felt;
