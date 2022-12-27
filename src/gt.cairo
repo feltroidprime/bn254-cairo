@@ -1,5 +1,5 @@
 from starkware.cairo.common.cairo_secp.bigint import BigInt3, nondet_bigint3, bigint_mul
-from alt_bn128_field import (
+from src.field import (
     fq_zero,
     is_zero,
     FQ12,
@@ -9,10 +9,9 @@ from alt_bn128_field import (
     fq12_diff,
     fq12_is_zero,
     fq12_zero,
-    unreducedFQ12,
 )
-from alt_bn128_g1 import G1Point
-from alt_bn128_g2 import g2, G2Point
+from src.g1 import G1Point
+from src.g2 import g2, G2Point
 
 struct GTPoint {
     x: FQ12,
