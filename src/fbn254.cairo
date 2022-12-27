@@ -133,6 +133,64 @@ namespace fbn254 {
 
         return remainder;
     }
+
+    func u512_unsigned_div_rem{range_check_ptr}(x: Uint512, div: Uint256) -> (
+        q: Uint512, r: Uint256
+    ) {
+        alloc_locals;
+        local quotient: Uint512;
+        local remainder: Uint256;
+
+        %{
+            def split(num: int, num_bits_shift: int, length: int):
+                a = []
+                for _ in range(length):
+                    a.append( num & ((1 << num_bits_shift) - 1) )
+                    num = num >> num_bits_shift 
+                return tuple(a)
+
+            def pack(z, num_bits_shift: int) -> int:
+                limbs = (z.low, z.high)
+                return sum(limb << (num_bits_shift * i) for i, limb in enumerate(limbs))
+                
+            def pack_extended(z, num_bits_shift: int) -> int:
+                limbs = (z.d0, z.d1, z.d2, z.d3)
+                return sum(limb << (num_bits_shift * i) for i, limb in enumerate(limbs))
+
+            x = pack_extended(ids.x, num_bits_shift = 128)
+            div = pack(ids.div, num_bits_shift = 128)
+
+            quotient, remainder = divmod(x, div)
+
+            quotient_split = split(quotient, num_bits_shift=128, length=4)
+
+            ids.quotient.d0 = quotient_split[0]
+            ids.quotient.d1 = quotient_split[1]
+            ids.quotient.d2 = quotient_split[2]
+            ids.quotient.d3 = quotient_split[3]
+
+            remainder_split = split(remainder, num_bits_shift=128, length=2)
+            ids.remainder.low = remainder_split[0]
+            ids.remainder.high = remainder_split[1]
+        %}
+
+        let res_mul: Uint768 = u255.mul_u512_by_u256(quotient, div);
+
+        assert res_mul.d4 = 0;
+        assert res_mul.d5 = 0;
+
+        let check_val: Uint512 = u255.add_u512_and_u256(
+            Uint512(res_mul.d0, res_mul.d1, res_mul.d2, res_mul.d3), remainder
+        );
+
+        // assert add_carry = 0;
+        assert check_val = x;
+
+        let is_valid = u255.lt(remainder, div);
+        assert is_valid = 1;
+
+        return (quotient, remainder);
+    }
     func inv_mod_p_uint512{range_check_ptr}(x: Uint512) -> Uint256 {
         alloc_locals;
         local x_inverse_mod_p: Uint256;
