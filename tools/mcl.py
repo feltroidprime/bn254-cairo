@@ -1,41 +1,51 @@
 import mclbn256 as mcl
-
+from mclbn256 import GT, G2, G1
 from bn254 import Fp2, Fp12, Fp4, Fp, ECp2, curve
 
 P=curve.p
 def xy(x):
+    # Convert G2 point from mcl lib to python tuple of 4 coordinates 
     xcord=str(x.tostr()).replace("'",'').split(' ')[1:]
     print(xcord)
     return (int(xcord[0],16), int(xcord [1],16), int(xcord[2],16), int(xcord[3],16))
 
 def xyGT(x):
-    xcord=str(x.tostr()).replace("'",'').split(' ')
-    print(xcord)
+    # Convert GT point from mcl lib to python tuple of 12 coordinates. 
+
+    xcord=str(x.tostr().decode()).replace("'",'').split(' ')
+    # print(xcord)
     return (int(xcord[0],16), int(xcord [1],16), int(xcord[2],16), int(xcord[3],16),
     int(xcord[4],16), int(xcord[5],16), int(xcord[6],16), int(xcord[7],16),
     int(xcord[8],16), int(xcord[9],16), int(xcord[10],16), int(xcord[11],16), 
     )
 
 
-g2=mcl.G2.base_point()
-g1=mcl.G1.base_point()
+g2:G2=mcl.G2.base_point()
+g1:G1=mcl.G1.base_point()
 
-g22=g2.dbl()
-e_g1g2=g2.pairing(g1)
+g22:G2=g2.dbl()
+
+
+e_g1g2:GT=g2.pairing(g1)
+mul_GT:GT=e_g1g2.mul(e_g1g2).mul(e_g1g2)
+pow_GT:GT=e_g1g2.pow(mcl.Fr(3))
+
 ee=xyGT(e_g1g2)
 print('E(g1,g2)=', xyGT(e_g1g2))
+print('E(g1,g2)**2=', xyGT(mul_GT))
 
-e_g1g2 = Fp12(
+
+e_g1g2_py = Fp12(
     Fp4(Fp2(Fp(ee[0]), Fp(ee[1])), Fp2(Fp(ee[2]), Fp(ee[3]))),
     Fp4(Fp2(Fp(ee[4]), Fp(ee[5])), Fp2(Fp(ee[6]), Fp(ee[7]))),
     Fp4(Fp2(Fp(ee[8]), Fp(ee[9])), Fp2(Fp(ee[10]), Fp(ee[11]))))
+mul_fq12 = e_g1g2_py.pow(2)
 
 xyg2=xy(g2)
 r=xy(g22)
 
 x0=Fp2(Fp(r[0]), Fp(r[1]))
 y0=Fp2(Fp(r[2]), Fp(r[3]))
-
 
 x1=Fp2(Fp(xyg2[0]), Fp(xyg2[1]))
 y1=Fp2(Fp(xyg2[2]), Fp(xyg2[3]))
