@@ -140,9 +140,24 @@ func test_fq12_mul{
     let e_G1G2: FQ12 = get_e_G1G2();
     let res: FQ12 = fq12_lib.mul(e_G1G2, e_G1G2);
 
-    %{ print_u_256_info(ids.res.e0) %}
-    %{ print_u_256_info(ids.res.e1) %}
-    %{ print_u_256_info(ids.res.e2) %}
+    %{ print_u_256_info(ids.res.e0, "e0") %}
+    %{ print_u_256_info(ids.res.e1, "e1") %}
+    %{ print_u_256_info(ids.res.e2, "e2") %}
+
+    return ();
+}
+
+@external
+func test_fq12_add{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}() {
+    __setup__();
+    let e_G1G2: FQ12 = get_e_G1G2();
+    let res: FQ12 = fq12_lib.add(e_G1G2, e_G1G2);
+
+    %{ print_u_256_info(ids.res.e0,"e0") %}
+    %{ print_u_256_info(ids.res.e1,"e0") %}
+    %{ print_u_256_info(ids.res.e2,"e0") %}
 
     return ();
 }
