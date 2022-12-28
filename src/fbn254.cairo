@@ -18,6 +18,10 @@ namespace fbn254 {
         let sum = u255.add(a, b);
         return u255.a_modulo_bn254p(sum);
     }
+
+    func fast_add_mod_p{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
+        let sum = u255.add(a, b);
+    }
     // Computes (a - b) modulo p .
     // NOTE: Expects a and b to be reduced modulo p (i.e. between 0 and p-1). The function will revert if a > p.
     // NOTE: To reduce a, take the remainder of uint384_lin.unsigned_div_rem(a, p), and similarly for b.
@@ -56,29 +60,29 @@ namespace fbn254 {
     func mul{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
         let full_mul_result: Uint512 = u255.mul(a, b);
         // %{ print_u_512_info(ids.full_mul_result, 'full_mul') %}
-        return u512_modulo_p_25519(full_mul_result);
+        return u512_modulo_bn254p(full_mul_result);
     }
 
     // Computes 2*a*b modulo p
     func mul2ab{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
         let full_mul_result: Uint512 = u255.mul2ab(a, b);
         // %{ print_u_512_info(ids.full_mul_result, 'full_mul2') %}
-        return u512_modulo_p_25519(full_mul_result);
+        return u512_modulo_bn254p(full_mul_result);
     }
     // Computes a*a modulo p
     func square{range_check_ptr}(a: Uint256) -> Uint256 {
         let full_mul_result: u512 = u255.square(a);
         // %{ print_u_512_info(ids.full_mul_result, 'full_mul2') %}
-        return u512_modulo_p_25519(full_mul_result);
+        return u512_modulo_bn254p(full_mul_result);
     }
     // Computes 2*a*a modulo p
     func square2{range_check_ptr}(a: Uint256) -> Uint256 {
         let full_mul_result: u512 = u255.square(a);
         let full_mul_result = u255.double_u511(full_mul_result);
         // %{ print_u_512_info(ids.full_mul_result, 'full_mul2') %}
-        return u512_modulo_p_25519(full_mul_result);
+        return u512_modulo_bn254p(full_mul_result);
     }
-    func u512_modulo_p_25519{range_check_ptr}(x: Uint512) -> Uint256 {
+    func u512_modulo_bn254p{range_check_ptr}(x: Uint512) -> Uint256 {
         alloc_locals;
         local quotient: Uint512;
         local remainder: Uint256;
