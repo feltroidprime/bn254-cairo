@@ -26,18 +26,18 @@ namespace fq12_lib {
     func add{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(x: FQ12, y: FQ12) -> (sum_mod: FQ12) {
         // TODO: check why alloc_locals seems to be needed here
         alloc_locals;
-        let (e0: Uint256) = fq_lib.add(x.e0, y.e0);
-        let (e1: Uint256) = fq_lib.add(x.e1, y.e1);
-        let (e2: Uint256) = fq_lib.add(x.e2, y.e2);
-        let (e3: Uint256) = fq_lib.add(x.e3, y.e3);
-        let (e4: Uint256) = fq_lib.add(x.e4, y.e4);
-        let (e5: Uint256) = fq_lib.add(x.e5, y.e5);
-        let (e6: Uint256) = fq_lib.add(x.e6, y.e6);
-        let (e7: Uint256) = fq_lib.add(x.e7, y.e7);
-        let (e8: Uint256) = fq_lib.add(x.e8, y.e8);
-        let (e9: Uint256) = fq_lib.add(x.e9, y.e9);
-        let (e10: Uint256) = fq_lib.add(x.e10, y.e10);
-        let (e11: Uint256) = fq_lib.add(x.e11, y.e11);
+        let e0: Uint256 = fq_lib.add(x.e0, y.e0);
+        let e1: Uint256 = fq_lib.add(x.e1, y.e1);
+        let e2: Uint256 = fq_lib.add(x.e2, y.e2);
+        let e3: Uint256 = fq_lib.add(x.e3, y.e3);
+        let e4: Uint256 = fq_lib.add(x.e4, y.e4);
+        let e5: Uint256 = fq_lib.add(x.e5, y.e5);
+        let e6: Uint256 = fq_lib.add(x.e6, y.e6);
+        let e7: Uint256 = fq_lib.add(x.e7, y.e7);
+        let e8: Uint256 = fq_lib.add(x.e8, y.e8);
+        let e9: Uint256 = fq_lib.add(x.e9, y.e9);
+        let e10: Uint256 = fq_lib.add(x.e10, y.e10);
+        let e11: Uint256 = fq_lib.add(x.e11, y.e11);
         let res = FQ12(e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11);
         return (res,);
     }
