@@ -151,6 +151,30 @@ namespace u255 {
         let res = Uint512(res0, res2, res4, a3 * b3 + carry);
         return res;
     }
+
+    func mul_two_u128{range_check_ptr}(a: felt, b: felt) -> Uint256 {
+        alloc_locals;
+        let (a0, a1) = split_64(a);
+        let (b0, b1) = split_64(b);
+
+        let (res0, carry) = split_128(a1 * b0 * HALF_SHIFT + a0 * b);
+        let res = Uint256(res0, a1 * b1 + carry);
+        return res;
+    }
+    func mul_by_u128{range_check_ptr}(a: Uint256, b: felt) -> Uint384 {
+        alloc_locals;
+        let (a0, a1) = split_64(a.low);
+        let (a2, a3) = split_64(a.high);
+        let (b0, b1) = split_64(b);
+        // let (b2, b3) = split_64(b.high);
+
+        local B0 = b0 * HALF_SHIFT;
+
+        let (res0, carry) = split_128(a1 * B0 + a0 * b);
+        let (res2, carry) = split_128(a3 * B0 + a2 * b + a1 * b1 + carry);
+        let res = Uint384(res0, res2, a3 * b1 + carry);
+        return res;
+    }
     func square{range_check_ptr}(a: Uint256) -> Uint512 {
         alloc_locals;
         let (a0, a1) = split_64(a.low);
@@ -476,13 +500,13 @@ namespace u255 {
         alloc_locals;
 
         let b_neg = neg(b);
-        let res = add(a, b_neg);
+        let (res, _) = add_carry(a, b_neg);
 
-        %{ print_sub(ids.a, 'a', ids.b, 'b', ids.res, 'res') %}
+        // %{ print_sub(ids.a, 'a', ids.b, 'b', ids.res, 'res') %}
 
         return res;
     }
-    //
+
     // func super_sub{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
     //     alloc_locals;
 
@@ -546,10 +570,10 @@ namespace u255 {
             ids.high = ids.a >> 64
         %}
         assert a = low + high * HALF_SHIFT;
-        // assert [range_check_ptr + 0] = low;
-        // assert [range_check_ptr + 1] = HALF_SHIFT - 1 - low;
-        // assert [range_check_ptr + 2] = high;
-        // let range_check_ptr = range_check_ptr + 3;
+        assert [range_check_ptr + 0] = low;
+        assert [range_check_ptr + 1] = HALF_SHIFT - 1 - low;
+        assert [range_check_ptr + 2] = high;
+        let range_check_ptr = range_check_ptr + 3;
         return (low, high);
     }
     func split_64_2{range_check_ptr}(a: felt) -> (low: felt, high: felt) {

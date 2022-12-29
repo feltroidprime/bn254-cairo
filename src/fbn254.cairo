@@ -1,26 +1,45 @@
 from starkware.cairo.common.bitwise import bitwise_and, bitwise_or, bitwise_xor
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.cairo.common.math import assert_in_range, assert_le, assert_nn_le, assert_not_zero
+from starkware.cairo.common.math import unsigned_div_rem as felt_divmod
 from starkware.cairo.common.math_cmp import is_le
-from starkware.cairo.common.pow import pow
 from starkware.cairo.common.registers import get_ap, get_fp_and_pc
 // Import uint384 files (path may change in the future)
 
-from src.u255 import u255, Uint256, Uint512, Uint768, Uint384
-from src.curve import P_low, P_high
+from src.u255 import u255, Uint256, Uint512, Uint768
+from src.curve import P_low, P_high, P2_low, P2_high, P3_low, P3_high, M_low, M_high, mu
+from src.uint384 import uint384_lib, Uint384
+from starkware.cairo.common.uint256 import (
+    uint256_unsigned_div_rem,
+    SHIFT,
+    uint256_le,
+    assert_uint256_le,
+)
 
-from starkware.cairo.common.uint256 import uint256_unsigned_div_rem, SHIFT
+from src.utils import get_felt_bitlength, pow2
 
 namespace fbn254 {
-    // Computes a + b modulo 2**255-19
+    // Computes a + b modulo bn254 prime
     // Assumes a+b < 2^256. If a and b both < PRIME, it is ok.
-    func add{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
+    func slow_add{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
         let sum = u255.add(a, b);
         return u255.a_modulo_bn254p(sum);
     }
 
-    func fast_add_mod_p{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
-        let sum = u255.add(a, b);
+    // a and b must both be < P
+    func add{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
+        let P = Uint256(P_low, P_high);
+        // assert_uint256_le(a, P);
+        // assert_uint256_le(b, P);
+        let sum: Uint256 = u255.add(a, b);
+
+        let (is_le) = uint256_le(P, sum);
+        if (is_le == 1) {
+            let res = u255.sub(sum, P);
+            return res;
+        } else {
+            return sum;
+        }
     }
     // Computes (a - b) modulo p .
     // NOTE: Expects a and b to be reduced modulo p (i.e. between 0 and p-1). The function will revert if a > p.
@@ -52,6 +71,8 @@ namespace fbn254 {
             ids.res.low = res_split[0]
             ids.res.high = res_split[1]
         %}
+        %{ print_u_256_info(ids.res, "res") %}
+
         let b_plus_res: Uint256 = add(b, res);
         assert b_plus_res = a;
         return res;
@@ -71,17 +92,81 @@ namespace fbn254 {
     }
     // Computes a*a modulo p
     func square{range_check_ptr}(a: Uint256) -> Uint256 {
-        let full_mul_result: u512 = u255.square(a);
+        let full_mul_result: Uint512 = u255.square(a);
         // %{ print_u_512_info(ids.full_mul_result, 'full_mul2') %}
         return u512_modulo_bn254p(full_mul_result);
     }
     // Computes 2*a*a modulo p
     func square2{range_check_ptr}(a: Uint256) -> Uint256 {
-        let full_mul_result: u512 = u255.square(a);
+        let full_mul_result: Uint512 = u255.square(a);
         let full_mul_result = u255.double_u511(full_mul_result);
         // %{ print_u_512_info(ids.full_mul_result, 'full_mul2') %}
         return u512_modulo_bn254p(full_mul_result);
     }
+
+    func fast_u512_modulo_bn254p{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
+        x: Uint512
+    ) -> Uint256 {
+        alloc_locals;
+        let P = Uint256(P_low, P_high);
+        let M = Uint256(M_low, M_high);
+        // let d2_bl = get_felt_bitlength(x.d2);
+
+        // let n = pow2(d2_bl);
+        // let n2 = pow2(d2_bl - 3);
+
+        assert bitwise_ptr[0].x = x.d2;
+        assert bitwise_ptr[0].y = 2 ** 128 - 2 ** 125 + 1;  // 2**bl-(2**(bl-3)-1) or 2**128-(2**125-1)
+
+        tempvar word = bitwise_ptr[0].x_and_y;
+
+        assert bitwise_ptr[1].x = x.d2;
+        assert bitwise_ptr[1].y = 2 ** 125 - 1;
+        tempvar word2 = bitwise_ptr[1].x_and_y;
+        // let ww = word - 2 ** 125 + 1;
+        // let ww2 = x.d2 - 2 ** 126 - 2 ** 125 + 1;  //
+        let x_div_23s = x.d3 * 2 ** 3 + word - 2 ** 125 + 1;
+
+        %{ print_felt_info(ids.x.d2, 'd2') %}
+
+        %{ print_felt_info(ids.word, 'word') %}
+        %{ print_felt_info(ids.word2, 'word2') %}
+
+        // %{ print_felt_info(ids.ww2, 'ww2') %}
+
+        %{ print_felt_info(ids.x_div_23s, 'x_div_32s') %}
+        // parse 3 high bits of x.d2, multiply x.d3*2**3 + x.d2 high 3 bits
+        let M_temp: Uint384 = u255.mul_by_u128(M, x_div_23s);
+        local X_mod_23s: Uint384 = Uint384(x.d0, x.d1, word2);
+
+        %{
+            def pack(z, num_bits_shift: int) -> int:
+                limbs = (z.d0, z.d1, z.d2)
+                print(z.d0.bit_length(), z.d1.bit_length(), z.d2.bit_length())
+                return sum(limb << (num_bits_shift * i) for i, limb in enumerate(limbs))
+            o=pack(ids.X_mod_23s, 128)
+            print('X_mod_32s', o, o.bit_length())
+        %}
+        let (N: Uint384, _) = uint384_lib.add(M_temp, X_mod_23s);
+        %{
+            o=pack(ids.N, 128)
+            print('N', o, o.bit_length())
+        %}
+        %{ assert ids.N.d2.bit_length()<128 %}
+
+        // assert bitwise_ptr[2].x = N.d2;
+
+        let T_mu: Uint256 = u255.mul_two_u128(mu, N.d2);
+        %{ print_u_256_info(ids.T_mu, 'T_mu') %}
+        // let T_P: Uint384 = u255.mul_by_u128(P, T_mu.high);
+        // let R: Uint384 = uint384_lib.sub(N, T_P);
+        // // assert R.d2 = 0;
+        // let res = Uint256(R.d0, R.d1);
+        let bitwise_ptr = bitwise_ptr + 2 * BitwiseBuiltin.SIZE;
+
+        return P;
+    }
+
     func u512_modulo_bn254p{range_check_ptr}(x: Uint512) -> Uint256 {
         alloc_locals;
         local quotient: Uint512;

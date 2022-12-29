@@ -15,9 +15,11 @@ from src.g2 import (
 )
 
 from src.u255 import Uint512
+from src.fbn254 import fbn254
 from src.pair import get_e_G1G2
 from src.fq12 import FQ12, fq12_lib
 from src.uint384_extension import Uint768
+from src.curve import P_low, P_high
 
 @external
 func __setup__() {
@@ -50,7 +52,7 @@ func __setup__() {
         def print_felt_info(u, un):
             print(f" {un}_{u.bit_length()}bits = {bin_8(u)}")
             print(f" {un} = {u}")
-            print(f" {un} = {int.to_bytes(u, 8, 'little')}")
+            # print(f" {un} = {int.to_bytes(u, 12, 'big')}")
 
         def print_u_512_info(u, un):
             u = u.d0 + (u.d1 << 128) + (u.d2<<256) + (u.d3<<384) 
@@ -126,7 +128,9 @@ func test_exponentiation{
     let e_G1G2: FQ12 = get_e_G1G2();
     let res = fq12_lib.pow(
         e_G1G2,
-        Uint512(293983376318658591435695938547208530370, 21441254871061059013954019161742013129, 0, 0),
+        Uint512(
+            293983376318658591435695938547208530370, 21441254871061059013954019161742013129, 0, 0
+        ),
     );
 
     return ();
@@ -158,6 +162,69 @@ func test_fq12_add{
     %{ print_u_256_info(ids.res.e0,"e0") %}
     %{ print_u_256_info(ids.res.e1,"e0") %}
     %{ print_u_256_info(ids.res.e2,"e0") %}
+
+    return ();
+}
+
+@external
+func test_fast_mod512{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}() {
+    __setup__();
+    let N = Uint512(
+        212472832437159906265623935117356739399,
+        134648828315525022475464726549943582870,
+        51090196246095967089934224945482105880,
+        9727325530149537115738878268149062474,
+    );
+    let res: Uint256 = fbn254.fast_u512_modulo_bn254p(N);
+
+    %{ print_u_256_info(ids.res,"e0") %}
+
+    return ();
+}
+
+@external
+func test_slow_mod512{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}() {
+    __setup__();
+    let N = Uint512(
+        212472832437159906265623935117356739399,
+        134648828315525022475464726549943582870,
+        51090196246095967089934224945482105880,
+        9727325530149537115738878268149062474,
+    );
+    let res: Uint256 = fbn254.u512_modulo_bn254p(N);
+
+    %{ print_u_256_info(ids.res,"e0") %}
+
+    return ();
+}
+
+@external
+func test_slow_mod256{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}() {
+    __setup__();
+    let N = Uint256(P_low - 123098, P_high - 132089);
+
+    let res: Uint256 = fbn254.slow_add(N, N);
+
+    %{ print_u_256_info(ids.res,"e0") %}
+
+    return ();
+}
+@external
+func test_fast_mod256{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}() {
+    __setup__();
+    let N = Uint256(P_low - 123098, P_high - 132089);
+
+    let res: Uint256 = fbn254.add(N, N);
+
+    %{ print_u_256_info(ids.res,"e0") %}
 
     return ();
 }
