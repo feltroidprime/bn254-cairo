@@ -1,5 +1,6 @@
 from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 
 from src.curve import P_low, P_high
 
@@ -152,21 +153,49 @@ namespace u255 {
         return res;
     }
 
-    func mul_two_u128{range_check_ptr}(a: felt, b: felt) -> Uint256 {
+    func mul_mu_by_u128{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(b: felt) -> felt {
         alloc_locals;
-        let (a0, a1) = split_64(a);
+        const a0 = 6201057224061509671;
+        const a1 = 12198255522540161359;
         let (b0, b1) = split_64(b);
 
-        let (res0, carry) = split_128(a1 * b0 * HALF_SHIFT + a0 * b);
-        let res = Uint256(res0, a1 * b1 + carry);
+        // let (res0, carry) = split_128(a1 * b0 * HALF_SHIFT + a0 * b);
+        assert bitwise_ptr[0].x = a1 * b0 * HALF_SHIFT + a0 * b;
+        assert bitwise_ptr[0].y = 2 ** 251 - 2 ** 128;
+        tempvar carry = bitwise_ptr[0].x_and_y / 2 ** 128;
+        %{ print_felt_info(ids.carry, "CARRY_MU_U128") %}
+        // let res = Uint256(res0, a1 * b1 + carry);
+        let res = 2 * (a1 * b1 + carry) + 1;
+        let bitwise_ptr = bitwise_ptr + BitwiseBuiltin.SIZE;
+
         return res;
     }
-    func mul_by_u128{range_check_ptr}(a: Uint256, b: felt) -> Uint384 {
+    func mul_P_by_u128{range_check_ptr}(b: felt) -> Uint384 {
         alloc_locals;
-        let (a0, a1) = split_64(a.low);
-        let (a2, a3) = split_64(a.high);
+        const a0 = 4332616871279656263;
+        const a1 = 10917124144477883021;
+        const a2 = 13281191951274694749;
+        const a3 = 3486998266802970665;
+        const a1_half_shift = 201385395114098847376005983906809511936;
+        const a3_half_shift = 64323764613183177028580865533951344640;
         let (b0, b1) = split_64(b);
-        // let (b2, b3) = split_64(b.high);
+
+        // local B0 = b0 * HALF_SHIFT;
+
+        let (res0, carry) = split_128(a1_half_shift * b0 + a0 * b);
+        let (res2, carry) = split_128(a3_half_shift * b0 + a2 * b + a1 * b1 + carry);
+        let res = Uint384(res0, res2, a3 * b1 + carry);
+        return res;
+    }
+
+    func mul_M_by_u128{range_check_ptr}(b: felt) -> Uint384 {
+        alloc_locals;
+        const a0 = 11321915213740558895;
+        const a1 = 9366602791392670115;
+        const a2 = 7765114512869801447;
+        const a3 = 1269141325604619840;
+
+        let (b0, b1) = split_64(b);
 
         local B0 = b0 * HALF_SHIFT;
 
@@ -504,6 +533,34 @@ namespace u255 {
 
         // %{ print_sub(ids.a, 'a', ids.b, 'b', ids.res, 'res') %}
 
+        return res;
+    }
+
+    func sub_b{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
+        alloc_locals;
+        local res: Uint256;
+        %{
+            def split(num: int, num_bits_shift: int = 128, length: int = 2):
+                a = []
+                for _ in range(length):
+                    a.append( num & ((1 << num_bits_shift) - 1) )
+                    num = num >> num_bits_shift
+                return tuple(a)
+
+            def pack(z, num_bits_shift: int = 128) -> int:
+                limbs = (z.low, z.high)
+                return sum(limb << (num_bits_shift * i) for i, limb in enumerate(limbs))
+
+            a = pack(ids.a)
+            b = pack(ids.b)
+            res = (a - b)%2**256
+            res_split = split(res)
+            ids.res.low = res_split[0]
+            ids.res.high = res_split[1]
+        %}
+        check(res);
+        let aa = add(res, b);
+        assert aa = a;
         return res;
     }
 

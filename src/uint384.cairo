@@ -81,33 +81,31 @@ namespace uint384_lib {
 
     // Adds two integers. Returns the result as a 384-bit integer and the (1-bit) carry.
     // Doesn't verify that the result is a proper Uint384, that's now the responsibility of the calling function
-    func _add_no_uint384_check{range_check_ptr}(a: Uint384, b: Uint384) -> (
-        res: Uint384, carry: felt
-    ) {
+    func _add_no_uint384_check{range_check_ptr}(a: Uint384, b: Uint384) -> Uint384 {
         alloc_locals;
         local res: Uint384;
         local carry_d0: felt;
         local carry_d1: felt;
-        local carry_d2: felt;
+        // local carry_d2: felt;
         %{
             sum_d0 = ids.a.d0 + ids.b.d0
             ids.carry_d0 = 1 if sum_d0 >= ids.SHIFT else 0
             sum_d1 = ids.a.d1 + ids.b.d1 + ids.carry_d0
             ids.carry_d1 = 1 if sum_d1 >= ids.SHIFT else 0
             sum_d2 = ids.a.d2 + ids.b.d2 + ids.carry_d1
-            ids.carry_d2 = 1 if sum_d2 >= ids.SHIFT else 0
+            # ids.carry_d2 = 1 if sum_d2 >= ids.SHIFT else 0
         %}
 
         // Either 0 or 1
         assert carry_d0 * carry_d0 = carry_d0;
         assert carry_d1 * carry_d1 = carry_d1;
-        assert carry_d2 * carry_d2 = carry_d2;
+        // assert carry_d2 * carry_d2 = carry_d2;
 
         assert res.d0 = a.d0 + b.d0 - carry_d0 * SHIFT;
         assert res.d1 = a.d1 + b.d1 + carry_d0 - carry_d1 * SHIFT;
-        assert res.d2 = a.d2 + b.d2 + carry_d1 - carry_d2 * SHIFT;
+        assert res.d2 = a.d2 + b.d2 + carry_d1;
 
-        return (res, carry_d2);
+        return res;
     }
 
     // Splits a field element in the range [0, 2^192) to its low 64-bit and high 128-bit parts.
@@ -221,8 +219,16 @@ namespace uint384_lib {
         let (res10, carry) = split_64(a5 * b5 + carry);
 
         return (
-            low=Uint384(d0=res0 + HALF_SHIFT * res1, d1=res2 + HALF_SHIFT * res3, d2=res4 + HALF_SHIFT * res5),
-            high=Uint384(d0=res6 + HALF_SHIFT * res7, d1=res8 + HALF_SHIFT * res9, d2=res10 + HALF_SHIFT * carry),
+            low=Uint384(
+                d0=res0 + HALF_SHIFT * res1,
+                d1=res2 + HALF_SHIFT * res3,
+                d2=res4 + HALF_SHIFT * res5,
+            ),
+            high=Uint384(
+                d0=res6 + HALF_SHIFT * res7,
+                d1=res8 + HALF_SHIFT * res9,
+                d2=res10 + HALF_SHIFT * carry,
+            ),
         );
     }
 
@@ -259,8 +265,16 @@ namespace uint384_lib {
         let (res10, carry) = split_64(carry);
 
         return (
-            low=Uint384(d0=res0 + HALF_SHIFT * res1, d1=res2 + HALF_SHIFT * res3, d2=res4 + HALF_SHIFT * res5),
-            high=Uint384(d0=res6 + HALF_SHIFT * res7, d1=res8 + HALF_SHIFT * res9, d2=res10 + HALF_SHIFT * carry),
+            low=Uint384(
+                d0=res0 + HALF_SHIFT * res1,
+                d1=res2 + HALF_SHIFT * res3,
+                d2=res4 + HALF_SHIFT * res5,
+            ),
+            high=Uint384(
+                d0=res6 + HALF_SHIFT * res7,
+                d1=res8 + HALF_SHIFT * res9,
+                d2=res10 + HALF_SHIFT * carry,
+            ),
         );
     }
 
@@ -275,13 +289,18 @@ namespace uint384_lib {
 
         let (res0, carry) = split_128(a0 * b0 + (a1 * b0 + a0 * b1) * HALF_SHIFT);
         let (res2, carry) = split_128(
-            a2 * b0 + a1 * b1 + a0 * b2 + (a3 * b0 + a2 * b1 + a1 * b2 + a0 * b3) * HALF_SHIFT + carry,
+            a2 * b0 + a1 * b1 + a0 * b2 + (a3 * b0 + a2 * b1 + a1 * b2 + a0 * b3) * HALF_SHIFT +
+            carry,
         );
         let (res4, carry) = split_128(
-            a4 * b0 + a3 * b1 + a2 * b2 + a1 * b3 + a0 * b4 + (a5 * b0 + a4 * b1 + a3 * b2 + a2 * b3 + a1 * b4 + a0 * b5) * HALF_SHIFT + carry,
+            a4 * b0 + a3 * b1 + a2 * b2 + a1 * b3 + a0 * b4 + (
+                a5 * b0 + a4 * b1 + a3 * b2 + a2 * b3 + a1 * b4 + a0 * b5
+            ) * HALF_SHIFT + carry,
         );
         let (res6, carry) = split_128(
-            a5 * b1 + a4 * b2 + a3 * b3 + a2 * b4 + a1 * b5 + (a5 * b2 + a4 * b3 + a3 * b4 + a2 * b5) * HALF_SHIFT + carry,
+            a5 * b1 + a4 * b2 + a3 * b3 + a2 * b4 + a1 * b5 + (
+                a5 * b2 + a4 * b3 + a3 * b4 + a2 * b5
+            ) * HALF_SHIFT + carry,
         );
         let (res8, carry) = split_128(
             a5 * b3 + a4 * b4 + a3 * b5 + (a5 * b4 + a4 * b5) * HALF_SHIFT + carry
@@ -330,7 +349,9 @@ namespace uint384_lib {
         let (a4, a5) = split_64(a.d2);
 
         return (
-            exp=Uint384_expand(a0 * HALF_SHIFT, a.d0, a1 + a2 * HALF_SHIFT, a.d1, a3 + a4 * HALF_SHIFT, a.d2, a5),
+            exp=Uint384_expand(
+                a0 * HALF_SHIFT, a.d0, a1 + a2 * HALF_SHIFT, a.d1, a3 + a4 * HALF_SHIFT, a.d2, a5
+            ),
         );
     }
 
@@ -373,7 +394,7 @@ namespace uint384_lib {
         let (res4, carry) = split_128(a5 * B0 + a4 * b + a3 * b1 + carry);
         // let (res6, carry) = split_64(a5 * b1 + carry)
 
-        return (low=Uint384(d0=res0, d1=res2, d2=res4), high=a5 * b1 + carry,);
+        return (low=Uint384(d0=res0, d1=res2, d2=res4), high=a5 * b1 + carry);
     }
 
     // assumes b < 2**64
@@ -382,7 +403,7 @@ namespace uint384_lib {
         let (res2, carry) = split_128(a.d1 * b + carry);
         let (res4, carry) = split_128(a.d2 * b + carry);
 
-        return (low=Uint384(d0=res0, d1=res2, d2=res4), high=carry,);
+        return (low=Uint384(d0=res0, d1=res2, d2=res4), high=carry);
     }
 
     func Toom3_eval(m0: felt, m1: felt, m2: felt) -> (p1: felt, pm1: felt, pm2: felt) {
@@ -451,7 +472,7 @@ namespace uint384_lib {
         // let (res10, carry) = split_64(w10 + carry)
 
         return (
-            low=Uint384(d0=res0, d1=res2, d2=res4), high=Uint384(d0=res6, d1=res8, d2=w10 + carry),
+            low=Uint384(d0=res0, d1=res2, d2=res4), high=Uint384(d0=res6, d1=res8, d2=w10 + carry)
         );
     }
 
@@ -486,7 +507,8 @@ namespace uint384_lib {
         let (res0, carry) = split_128(d0 + d1 * HALF_SHIFT);
         let (res2, carry) = split_128(d2 + (d3 + A0 * B0 - d0 - d6) * HALF_SHIFT + carry);
         let (res4, carry) = split_128(
-            d4 + A1 * B0 + A0 * B1 - d1 - d7 + (A2 * B0 + A1 * B1 + A0 * B2 - d2 - d8) * HALF_SHIFT + carry,
+            d4 + A1 * B0 + A0 * B1 - d1 - d7 + (A2 * B0 + A1 * B1 + A0 * B2 - d2 - d8) *
+            HALF_SHIFT + carry,
         );
         let (res6, carry) = split_128(
             d6 + A2 * B1 + A1 * B2 - d3 - d9 + (d7 + A2 * B2 - d4 - d10) * HALF_SHIFT + carry
@@ -495,7 +517,7 @@ namespace uint384_lib {
         // let (res10, carry) = split_64(d10 + carry)
 
         return (
-            low=Uint384(d0=res0, d1=res2, d2=res4), high=Uint384(d0=res6, d1=res8, d2=d10 + carry),
+            low=Uint384(d0=res0, d1=res2, d2=res4), high=Uint384(d0=res6, d1=res8, d2=d10 + carry)
         );
     }
 
@@ -576,7 +598,13 @@ namespace uint384_lib {
         check(high);
 
         assert (a.d0 + a.d1 * B0_1 + a.d2 * B0_2) * (b.d0 + b.d1 * B0_1 + b.d2 * B0_2) = (
-            low.d0 + low.d1 * B0_1 + low.d2 * B0_2 + high.d0 * B0_3 + high.d1 * B0_4 + high.d2 * B0_5);
+            low.d0 +
+            low.d1 * B0_1 +
+            low.d2 * B0_2 +
+            high.d0 * B0_3 +
+            high.d1 * B0_4 +
+            high.d2 * B0_5
+        );
 
         let (_, va) = frem(a.d0, FAC1);
         let (_, vb) = frem(b.d0, FAC1);
@@ -585,28 +613,32 @@ namespace uint384_lib {
         let (_, va) = frem(a.d0 + a.d1 * B2_1 + a.d2 * B2_2, FAC2);
         let (_, vb) = frem(b.d0 + b.d1 * B2_1 + b.d2 * B2_2, FAC2);
         assert_div(
-            low.d0 + low.d1 * B2_1 + low.d2 * B2_2 + high.d0 * B2_3 + high.d1 * B2_4 + high.d2 * B2_5 + FAC2 ** 2 - va * vb,
+            low.d0 + low.d1 * B2_1 + low.d2 * B2_2 + high.d0 * B2_3 + high.d1 * B2_4 + high.d2 *
+            B2_5 + FAC2 ** 2 - va * vb,
             FAC2,
         );
 
         let (_, va) = frem(a.d0 + a.d1 * B3_1 + a.d2 * B3_2, FAC3);
         let (_, vb) = frem(b.d0 + b.d1 * B3_1 + b.d2 * B3_2, FAC3);
         assert_div(
-            low.d0 + low.d1 * B3_1 + low.d2 * B3_2 + high.d0 * B3_3 + high.d1 * B3_4 + high.d2 * B3_5 + FAC3 ** 2 - va * vb,
+            low.d0 + low.d1 * B3_1 + low.d2 * B3_2 + high.d0 * B3_3 + high.d1 * B3_4 + high.d2 *
+            B3_5 + FAC3 ** 2 - va * vb,
             FAC3,
         );
 
         let (_, va) = frem(a.d0 + a.d1 * B4_1 + a.d2 * B4_2, FAC4);
         let (_, vb) = frem(b.d0 + b.d1 * B4_1 + b.d2 * B4_2, FAC4);
         assert_div(
-            low.d0 + low.d1 * B4_1 + low.d2 * B4_2 + high.d0 * B4_3 + high.d1 * B4_4 + high.d2 * B4_5 + FAC4 ** 2 - va * vb,
+            low.d0 + low.d1 * B4_1 + low.d2 * B4_2 + high.d0 * B4_3 + high.d1 * B4_4 + high.d2 *
+            B4_5 + FAC4 ** 2 - va * vb,
             FAC4,
         );
 
         let (_, va) = frem(a.d0 + a.d1 * B5_1 + a.d2 * B5_2, FAC5);
         let (_, vb) = frem(b.d0 + b.d1 * B5_1 + b.d2 * B5_2, FAC5);
         assert_div(
-            low.d0 + low.d1 * B5_1 + low.d2 * B5_2 + high.d0 * B5_3 + high.d1 * B5_4 + high.d2 * B5_5 + FAC5 ** 2 - va * vb,
+            low.d0 + low.d1 * B5_1 + low.d2 * B5_2 + high.d0 * B5_3 + high.d1 * B5_4 + high.d2 *
+            B5_5 + FAC5 ** 2 - va * vb,
             FAC5,
         );
 
@@ -1104,7 +1136,7 @@ namespace uint384_lib {
     }
 
     // Subtracts two integers. Returns the result as a 384-bit integer.
-    func sub{range_check_ptr}(a: Uint384, b: Uint384) -> (res: Uint384) {
+    func sub{range_check_ptr}(a: Uint384, b: Uint384) -> Uint384 {
         let (b_neg) = neg(b);
         let (res, _) = add(a, b_neg);
         return (res,);
@@ -1112,7 +1144,7 @@ namespace uint384_lib {
 
     // Subtracts two integers. Returns the result as a 384-bit integer
     // and a sign felt that is 1 if the result is non-negative, convention based on signed_nn
-    func sub_b{range_check_ptr}(a: Uint384, b: Uint384) -> (res: Uint384, sign: felt) {
+    func sub_b{range_check_ptr}(a: Uint384, b: Uint384) -> Uint384 {
         alloc_locals;
         local res: Uint384;
         %{
@@ -1136,9 +1168,9 @@ namespace uint384_lib {
             ids.res.d2 = res_split[2]
         %}
         check(res);
-        let (aa, inv_sign) = _add_no_uint384_check(res, b);
+        let aa: Uint384 = _add_no_uint384_check(res, b);
         assert aa = a;
-        return (res, 1 - inv_sign);
+        return res;
     }
 
     // Return true if both integers are equal.

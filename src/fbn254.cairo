@@ -13,6 +13,7 @@ from starkware.cairo.common.uint256 import (
     uint256_unsigned_div_rem,
     SHIFT,
     uint256_le,
+    uint256_lt,
     assert_uint256_le,
 )
 
@@ -33,9 +34,9 @@ namespace fbn254 {
         // assert_uint256_le(b, P);
         let sum: Uint256 = u255.add(a, b);
 
-        let (is_le) = uint256_le(P, sum);
+        let (is_le) = uint256_lt(P, sum);
         if (is_le == 1) {
-            let res = u255.sub(sum, P);
+            let res = u255.sub_b(sum, P);
             return res;
         } else {
             return sum;
@@ -116,16 +117,17 @@ namespace fbn254 {
         // let n2 = pow2(d2_bl - 3);
 
         assert bitwise_ptr[0].x = x.d2;
-        assert bitwise_ptr[0].y = 2 ** 128 - 2 ** 125 + 1;  // 2**bl-(2**(bl-3)-1) or 2**128-(2**125-1)
-
-        tempvar word = bitwise_ptr[0].x_and_y;
+        assert bitwise_ptr[0].y = 2 ** 128 - 2 ** 125;  // 2**bl-(2**(bl-3)-1) or 2**128-(2**125-1)
 
         assert bitwise_ptr[1].x = x.d2;
         assert bitwise_ptr[1].y = 2 ** 125 - 1;
+
+        tempvar word = bitwise_ptr[0].x_and_y;
         tempvar word2 = bitwise_ptr[1].x_and_y;
+
         // let ww = word - 2 ** 125 + 1;
         // let ww2 = x.d2 - 2 ** 126 - 2 ** 125 + 1;  //
-        let x_div_23s = x.d3 * 2 ** 3 + word - 2 ** 125 + 1;
+        let x_div_23s = x.d3 * 2 ** 3 + word / 2 ** 125;
 
         %{ print_felt_info(ids.x.d2, 'd2') %}
 
@@ -135,8 +137,8 @@ namespace fbn254 {
         // %{ print_felt_info(ids.ww2, 'ww2') %}
 
         %{ print_felt_info(ids.x_div_23s, 'x_div_32s') %}
-        // parse 3 high bits of x.d2, multiply x.d3*2**3 + x.d2 high 3 bits
-        let M_temp: Uint384 = u255.mul_by_u128(M, x_div_23s);
+        // parse 3 high bits (cut at 381) of x.d2, multiply x.d3*2**3 + x.d2 high 3 bits
+        let M_temp: Uint384 = u255.mul_M_by_u128(x_div_23s);
         local X_mod_23s: Uint384 = Uint384(x.d0, x.d1, word2);
 
         %{
@@ -147,24 +149,45 @@ namespace fbn254 {
             o=pack(ids.X_mod_23s, 128)
             print('X_mod_32s', o, o.bit_length())
         %}
-        let (N: Uint384, _) = uint384_lib.add(M_temp, X_mod_23s);
+        let N: Uint384 = uint384_lib._add_no_uint384_check(M_temp, X_mod_23s);
         %{
             o=pack(ids.N, 128)
             print('N', o, o.bit_length())
         %}
         %{ assert ids.N.d2.bit_length()<128 %}
 
-        // assert bitwise_ptr[2].x = N.d2;
+        assert bitwise_ptr[2].x = N.d1;
+        assert bitwise_ptr[2].y = 2 ** 128 - 2 ** 126;
+        tempvar word3 = bitwise_ptr[2].x_and_y;
+        %{ print_felt_info(ids.word3, 'word3') %}
 
-        let T_mu: Uint256 = u255.mul_two_u128(mu, N.d2);
-        %{ print_u_256_info(ids.T_mu, 'T_mu') %}
-        // let T_P: Uint384 = u255.mul_by_u128(P, T_mu.high);
-        // let R: Uint384 = uint384_lib.sub(N, T_P);
-        // // assert R.d2 = 0;
-        // let res = Uint256(R.d0, R.d1);
-        let bitwise_ptr = bitwise_ptr + 2 * BitwiseBuiltin.SIZE;
+        let N_div_22s: felt = N.d2 * 2 ** 2 + word3 / 2 ** 126;  // + word3 - 2 ** 126 + 1;
+        %{ print_felt_info(ids.N_div_22s, "n_div_254") %}
+        let bitwise_ptr = bitwise_ptr + 3 * BitwiseBuiltin.SIZE;
 
-        return P;
+        let T_mu_high: felt = u255.mul_mu_by_u128(N_div_22s);
+        %{ print_felt_info(ids.T_mu_high, 'T_mu_high') %}
+        let T_P: Uint384 = u255.mul_P_by_u128(T_mu_high);
+
+        %{
+            o=pack(ids.T_P, 128)
+            print('T_P', o, o.bit_length())
+        %}
+        let R: Uint384 = uint384_lib.sub_b(N, T_P);
+
+        %{
+            o=pack(ids.R, 128)
+            print('R', o, o.bit_length())
+        %}
+        // assert R.d2 = 0;
+        let res = Uint256(R.d0, R.d1);
+        let (is_le) = uint256_lt(P, res);
+        if (is_le == 1) {
+            let reduced = u255.sub_b(res, P);
+            return reduced;
+        } else {
+            return res;
+        }
     }
 
     func u512_modulo_bn254p{range_check_ptr}(x: Uint512) -> Uint256 {
