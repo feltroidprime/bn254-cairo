@@ -116,9 +116,7 @@ namespace fbn254 {
         let res = Polyfelt(a00, a10, a20, a30, a40);
         return res;
     }
-    func mul_polyfelt{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
-        a: Polyfelt, b: Polyfelt
-    ) -> Polyfelt {
+    func mul_polyfelt{range_check_ptr}(a: Polyfelt, b: Polyfelt) -> Polyfelt {
         alloc_locals;
         // BEGIN0
         // 3. c(t) = c(t) + a(t)bj
@@ -127,7 +125,7 @@ namespace fbn254 {
         %{ print_felt_info(ids.c00, "c00") %}
         // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
         // let (mu, gamma) = felt_divmod(c00, 2 ** 63);
-        let (mu, gamma) = bitwise_divmod(c00, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c00, 2 ** 63);
 
         const s = 857;
         let gamma = gamma - s * mu;
@@ -154,7 +152,7 @@ namespace fbn254 {
         %{ print_felt_info(ids.c00, "c00") %}
         // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
         // let (mu, gamma) = felt_divmod(c00, 2 ** 63);
-        let (mu, gamma) = bitwise_divmod(c00, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c00, 2 ** 63);
 
         let gamma = gamma - s * mu;
 
@@ -179,7 +177,7 @@ namespace fbn254 {
         %{ print_felt_info(ids.c00, "c00") %}
         // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
         // let (mu, gamma) = felt_divmod(c00, 2 ** 63);
-        let (mu, gamma) = bitwise_divmod(c00, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c00, 2 ** 63);
         let gamma = gamma - s * mu;
 
         // 5. g(t) = p(t) * gamma
@@ -198,7 +196,7 @@ namespace fbn254 {
         %{ print_felt_info(ids.c00, "c00") %}
         // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
         // let (mu, gamma) = felt_divmod(c00, 2 ** 63);
-        let (mu, gamma) = bitwise_divmod(c00, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c00, 2 ** 63);
 
         let gamma = gamma - s * mu;
 
@@ -218,7 +216,7 @@ namespace fbn254 {
         %{ print_felt_info(ids.c00, "c00") %}
         // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
         // let (mu, gamma) = felt_divmod(c00, 2 ** 63);
-        let (mu, gamma) = bitwise_divmod(c00, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c00, 2 ** 63);
 
         let gamma = gamma - s * mu;
 
@@ -239,25 +237,25 @@ namespace fbn254 {
 
         // BEGIN 0
         // let (mu, gamma) = felt_divmod(c1000, 2 ** 63);
-        let (mu, gamma) = bitwise_divmod(c1000, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c1000, 2 ** 63);
 
         let c00 = gamma - s * mu;
         let c10 = c2010 + mu;
         // BEGIN 1
         // let (mu, gamma) = felt_divmod(c10, 2 ** 63);
-        let (mu, gamma) = bitwise_divmod(c10, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c10, 2 ** 63);
 
         let c10 = gamma - s * mu;
         let c20 = c3020 + mu;
         // BEGIN 2
         // let (mu, gamma) = felt_divmod(c20, 2 ** 63);
-        let (mu, gamma) = bitwise_divmod(c20, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c20, 2 ** 63);
 
         let c20 = gamma - s * mu;
         let c30 = c3020 + mu;
         // BEGIN 3
         // let (mu, gamma) = felt_divmod(c30, 2 ** 63);
-        let (mu, gamma) = bitwise_divmod(c30, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c30, 2 ** 63);
 
         let c30 = gamma - s * mu;
         let c40 = c4030 + mu;
