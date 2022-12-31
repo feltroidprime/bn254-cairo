@@ -9,15 +9,17 @@ from starkware.cairo.common.registers import get_ap, get_fp_and_pc
 from src.u255 import u255, Uint256, Uint512, Uint768
 from src.curve import P_low, P_high, P2_low, P2_high, P3_low, P3_high, M_low, M_high, mu
 from src.uint384 import uint384_lib, Uint384
-from starkware.cairo.common.uint256 import (
-    uint256_unsigned_div_rem,
-    SHIFT,
-    uint256_le,
-    uint256_lt,
-    assert_uint256_le,
-)
-
+from starkware.cairo.common.uint256 import SHIFT, uint256_le, uint256_lt, assert_uint256_le
+from src.uint256_improvements import uint256_unsigned_div_rem
 from src.utils import get_felt_bitlength, pow2
+
+struct Polyfelt {
+    p00: felt,
+    p10: felt,
+    p20: felt,
+    p30: felt,
+    p40: felt,
+}
 
 namespace fbn254 {
     // Computes a + b modulo bn254 prime
@@ -84,7 +86,147 @@ namespace fbn254 {
         // %{ print_u_512_info(ids.full_mul_result, 'full_mul') %}
         return u512_modulo_bn254p(full_mul_result);
     }
+    func to_polyfelt{range_check_ptr}(a: Uint256) -> Polyfelt {
+        alloc_locals;
+        let (a4, r) = uint256_unsigned_div_rem(
+            a,
+            Uint256(272204382041124684987214825571503402433, 1786771239255088250803009499627505898),
+        );
+        assert a4.high = 0;
+        let (a3, r) = uint256_unsigned_div_rem(
+            r, Uint256(331349846221318139915745154521890902225, 359825430517661861)
+        );
+        // May use felt_divmod here for the last two:
+        let (a2, r) = uint256_unsigned_div_rem(
+            r, Uint256(24657792813631553165138951344902952161, 0)
+        );
+        let (a1, a0) = uint256_unsigned_div_rem(r, Uint256(4965661367192848881, 0));
 
+        assert a3.high = 0;
+        assert a2.high = 0;
+        assert a1.high = 0;
+        assert a0.high = 0;
+
+        let a00 = a0.low;
+        let a10 = a1.low;
+        let a20 = a2.low;
+        let a30 = a3.low;
+        let a40 = a4.low;
+
+        let res = Polyfelt(a00, a10, a20, a30, a40);
+        return res;
+    }
+    func mul_polyfelt{range_check_ptr}(a: Polyfelt, b: Polyfelt) -> Polyfelt {
+        alloc_locals;
+        // BEGIN0
+        // 3. c(t) = c(t) + a(t)bj
+
+        let c00 = a.p00 * b.p00;
+        %{ print_felt_info(ids.c00, "c00") %}
+        // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
+        let (mu, gamma) = felt_divmod(c00, 2 ** 63);
+        const s = 857;
+        let gamma = gamma - s * mu;
+
+        // 5. g(t) = p(t) * gamma
+        let (qc00, rc00) = felt_divmod(c00 - gamma, 4965661367192848881);
+        let c00 = qc00 + mu;
+        %{ print_felt_info(ids.c00, "c00") %}
+        let c1000 = a.p10 * b.p00 - 6 * gamma + c00;
+        let c2010 = a.p20 * b.p00 - 24 * gamma;
+        let c3020 = a.p30 * b.p00 - 36 * gamma;
+        let c4030 = a.p30 * b.p00 - 36 * gamma;
+
+        %{ print_felt_info(ids.c1000, "c1000") %}
+
+        %{ print_felt_info(ids.c2010, "c2010") %}
+        %{ print_felt_info(ids.c3020, "c3020") %}
+        %{ print_felt_info(ids.c4030, "c4030") %}
+
+        // BEGIN1
+        // 3. c(t) = c(t) + a(t)bj
+
+        let c00 = c1000 + a.p00 * b.p10;
+        %{ print_felt_info(ids.c00, "c00") %}
+        // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
+        let (mu, gamma) = felt_divmod(c00, 2 ** 63);
+        let gamma = gamma - s * mu;
+
+        // 5. g(t) = p(t) * gamma
+        let (qc00, rc00) = felt_divmod(c00 - gamma, 4965661367192848881);
+        let c00 = qc00 + mu;
+        %{ print_felt_info(ids.c00, "c00") %}
+        let c1000 = a.p10 * b.p10 - 6 * gamma + qc00 + mu;
+        let c2010 = a.p20 * b.p10 - 24 * gamma;
+        let c3020 = a.p30 * b.p10 - 36 * gamma;
+        let c4030 = a.p30 * b.p10 - 36 * gamma;
+
+        %{ print_felt_info(ids.c1000, "c1000") %}
+        %{ print_felt_info(ids.c2010, "c2010") %}
+        %{ print_felt_info(ids.c3020, "c3020") %}
+        %{ print_felt_info(ids.c4030, "c4030") %}
+
+        // BEGIN2
+        // 3. c(t) = c(t) + a(t)bj
+
+        let c00 = c1000 + a.p00 * b.p20;
+        %{ print_felt_info(ids.c00, "c00") %}
+        // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
+        let (mu, gamma) = felt_divmod(c00, 2 ** 63);
+        let gamma = gamma - s * mu;
+
+        // 5. g(t) = p(t) * gamma
+        let (qc00, rc00) = felt_divmod(c00 - gamma, 4965661367192848881);
+        let c00 = qc00 + mu;
+        %{ print_felt_info(ids.c00, "c00") %}
+        let c1000 = a.p10 * b.p20 - 6 * gamma + qc00 + mu;
+        let c2010 = a.p20 * b.p20 - 24 * gamma;
+        let c3020 = a.p30 * b.p20 - 36 * gamma;
+        let c4030 = a.p30 * b.p20 - 36 * gamma;
+
+        // BEGIN3
+        // 3. c(t) = c(t) + a(t)bj
+
+        let c00 = c1000 + a.p00 * b.p30;
+        %{ print_felt_info(ids.c00, "c00") %}
+        // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
+        let (mu, gamma) = felt_divmod(c00, 2 ** 63);
+        let gamma = gamma - s * mu;
+
+        // 5. g(t) = p(t) * gamma
+        let (qc00, rc00) = felt_divmod(c00 - gamma, 4965661367192848881);
+        let c00 = qc00 + mu;
+        %{ print_felt_info(ids.c00, "c00") %}
+        let c1000 = a.p10 * b.p30 - 6 * gamma + qc00 + mu;
+        let c2010 = a.p20 * b.p30 - 24 * gamma;
+        let c3020 = a.p30 * b.p30 - 36 * gamma;
+        let c4030 = a.p40 * b.p30 - 36 * gamma;
+
+        // BEGIN4
+        // 3. c(t) = c(t) + a(t)bj
+
+        let c00 = c1000 + a.p00 * b.p40;
+        %{ print_felt_info(ids.c00, "c00") %}
+        // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
+        let (mu, gamma) = felt_divmod(c00, 2 ** 63);
+        let gamma = gamma - s * mu;
+
+        // 5. g(t) = p(t) * gamma
+        let (qc00, rc00) = felt_divmod(c00 - gamma, 4965661367192848881);
+        let c00 = qc00 + mu;
+        %{ print_felt_info(ids.c00, "c00") %}
+        let c1000 = a.p10 * b.p40 - 6 * gamma + qc00 + mu;
+        let c2010 = a.p20 * b.p40 - 24 * gamma;
+        let c3020 = a.p30 * b.p40 - 36 * gamma;
+        let c4030 = a.p40 * b.p40 - 36 * gamma;
+
+        %{ print_felt_info(ids.c1000, "c1000") %}
+        %{ print_felt_info(ids.c2010, "c2010") %}
+        %{ print_felt_info(ids.c3020, "c3020") %}
+        %{ print_felt_info(ids.c4030, "c4030") %}
+
+        return a;
+    }
     // Computes 2*a*b modulo p
     func mul2ab{range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
         let full_mul_result: Uint512 = u255.mul2ab(a, b);
@@ -110,12 +252,12 @@ namespace fbn254 {
     ) -> Uint256 {
         alloc_locals;
         let P = Uint256(P_low, P_high);
-        let M = Uint256(M_low, M_high);
         // let d2_bl = get_felt_bitlength(x.d2);
 
         // let n = pow2(d2_bl);
         // let n2 = pow2(d2_bl - 3);
 
+        // splits first 3 bits (word/2**125) and last (word2)
         assert bitwise_ptr[0].x = x.d2;
         assert bitwise_ptr[0].y = 2 ** 128 - 2 ** 125;  // 2**bl-(2**(bl-3)-1) or 2**128-(2**125-1)
 
@@ -123,15 +265,18 @@ namespace fbn254 {
         assert bitwise_ptr[1].y = 2 ** 125 - 1;
 
         tempvar word = bitwise_ptr[0].x_and_y;
-        tempvar word2 = bitwise_ptr[1].x_and_y;
+        tempvar word1 = bitwise_ptr[0].x_or_y - 1;
+        tempvar word2 = bitwise_ptr[1].x_and_y;  // x_mod_2**3s
 
         // let ww = word - 2 ** 125 + 1;
         // let ww2 = x.d2 - 2 ** 126 - 2 ** 125 + 1;  //
-        let x_div_23s = x.d3 * 2 ** 3 + word / 2 ** 125;
+        let x_div_23s: felt = x.d3 * 2 ** 3 + word / 2 ** 125;
 
         %{ print_felt_info(ids.x.d2, 'd2') %}
 
         %{ print_felt_info(ids.word, 'word') %}
+        %{ print_felt_info(ids.word1, 'word1') %}
+
         %{ print_felt_info(ids.word2, 'word2') %}
 
         // %{ print_felt_info(ids.ww2, 'ww2') %}
@@ -163,6 +308,7 @@ namespace fbn254 {
 
         let N_div_22s: felt = N.d2 * 2 ** 2 + word3 / 2 ** 126;  // + word3 - 2 ** 126 + 1;
         %{ print_felt_info(ids.N_div_22s, "n_div_254") %}
+
         let bitwise_ptr = bitwise_ptr + 3 * BitwiseBuiltin.SIZE;
 
         let T_mu_high: felt = u255.mul_mu_by_u128(N_div_22s);
@@ -174,7 +320,6 @@ namespace fbn254 {
             print('T_P', o, o.bit_length())
         %}
         let R: Uint384 = uint384_lib.sub_b(N, T_P);
-
         %{
             o=pack(ids.R, 128)
             print('R', o, o.bit_length())

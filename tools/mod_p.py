@@ -88,14 +88,50 @@ def intel(x):
     N=M*(x//2**381) + x%2**381
 
     print('N', N, N.bit_length())
-    T_mu = mu * N//2**254
+    T_mu = mu * (N//2**254)
+    print("n_div254", N//2**254, (N//2**254).bit_length())
+    print("T_mu=",T_mu, T_mu.bit_length())
     T_P = (T_mu//2**127)*P
     print(N, T_P)
     R=N-T_P
     return R
 
+def barett(x):
+    mu = 2**509//P
+    limbs=split(x, 128, 4)
+    T_mu = mu//2**254
+    R=x- (x//2**254)*T_mu*P
+    return R
+
 L=(P-93849028375890238420398403284234)*(P-P//5)
 R=intel(L)
+B=barett(L)
 
 
+def to_poly_256(x):
+    t=4965661367192848881
+    limbs=split(x, 64, 4)
+    print(limbs)
+    res=[]
 
+    q4=x//t**4
+    r=x%t**4
+    q3=r//t**3
+    r=r%t**3
+    q2=r//t**2
+    r=r%t**2
+    q1=r//t**1
+    r=r%t
+    q0=r
+
+
+    res=(q0, q1, q2, q3, q4)
+    return res
+
+    
+res=to_poly_256(P-123)
+
+def evaluate(c):
+    t=4965661367192848881
+    r=c[0] + c[1]*t + c[2]*t**2+c[3]*t**3+c[4]*t**4
+    return r

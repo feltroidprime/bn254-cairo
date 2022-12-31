@@ -15,7 +15,7 @@ from src.g2 import (
 )
 
 from src.u255 import Uint512
-from src.fbn254 import fbn254
+from src.fbn254 import fbn254, Polyfelt
 from src.pair import get_e_G1G2
 from src.fq12 import FQ12, fq12_lib
 from src.uint384_extension import Uint768
@@ -225,6 +225,34 @@ func test_fast_mod256{
     let res: Uint256 = fbn254.add(N, N);
 
     %{ print_u_256_info(ids.res,"e0") %}
+
+    return ();
+}
+
+@external
+func test_mod_mul_classic{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}() {
+    __setup__();
+    let X = Uint256(
+        201385395114098847380338600778089168076, 64323764613183177041862057485226039389
+    );
+    let Y = Uint256(75392519548959451050754627114999798041, 55134655382728437464453192130193748048);
+    let res: Uint256 = fbn254.mul(X, Y);
+
+    return ();
+}
+
+@external
+func test_mul_poly{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}() {
+    __setup__();
+    // P - 123
+    let X = Polyfelt(4965661367192848759, 5, 24, 36, 36);
+    // P - P//7
+    let Y = Polyfelt(2837520781253056505, 2837520781253056508, 20, 4256281171879584786, 30);
+    let res: Polyfelt = fbn254.mul_polyfelt(X, Y);
 
     return ();
 }
