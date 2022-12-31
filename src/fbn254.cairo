@@ -2,7 +2,7 @@ from starkware.cairo.common.bitwise import bitwise_and, bitwise_or, bitwise_xor
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.cairo.common.math import assert_in_range, assert_le, assert_nn_le, assert_not_zero
 from starkware.cairo.common.math import unsigned_div_rem as felt_divmod
-from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.math_cmp import is_le, is_nn
 from starkware.cairo.common.registers import get_ap, get_fp_and_pc
 // Import uint384 files (path may change in the future)
 
@@ -116,11 +116,40 @@ namespace fbn254 {
         let res = Polyfelt(a00, a10, a20, a30, a40);
         return res;
     }
-    func mul_polyfelt{range_check_ptr}(a: Polyfelt, b: Polyfelt) -> Polyfelt {
+    func add_polyfelt{range_check_ptr}(a: Polyfelt, b: Polyfelt) -> Polyfelt {
         alloc_locals;
         // BEGIN0
         // 3. c(t) = c(t) + a(t)bj
+        let c00 = a.p00 + b.p00;
+        %{ print_felt_info(ids.c00, "c00") %}
+        // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
+        // let (mu, gamma) = felt_divmod(c00, 2 ** 63);
+        let (mu, gamma) = felt_divmod_no_input_check(c00, 2 ** 63);
 
+        const s = 857;
+        let gamma = gamma - s * mu;
+
+        // 5. g(t) = p(t) * gamma
+        let (qc00, rc00) = felt_divmod_no_input_check(c00 - gamma, 4965661367192848881);
+        let c00 = qc00 + mu;
+        %{ print_felt_info(ids.c00, "c00") %}
+        let c1000 = a.p10 + b.p10 - 6 * gamma + c00;
+        let c2010 = a.p20 + b.p20 - 24 * gamma;
+        let c3020 = a.p30 + b.p30 - 36 * gamma;
+        let c4030 = a.p40 + b.p40 - 36 * gamma;
+
+        %{ print_felt_info(ids.c1000, "c1000") %}
+
+        %{ print_felt_info(ids.c2010, "c2010") %}
+        %{ print_felt_info(ids.c3020, "c3020") %}
+        %{ print_felt_info(ids.c4030, "c4030") %}
+    }
+    func mul_polyfelt{range_check_ptr}(a: Polyfelt, b: Polyfelt) -> Polyfelt {
+        alloc_locals;
+        // BEGIN0
+        %{ print('BEGIN0') %}
+
+        // 3. c(t) = c(t) + a(t)bj
         let c00 = a.p00 * b.p00;
         %{ print_felt_info(ids.c00, "c00") %}
         // 4. mu = c00 // 2**m, gamma = c00%2**m - s*mu
@@ -137,7 +166,7 @@ namespace fbn254 {
         let c1000 = a.p10 * b.p00 - 6 * gamma + c00;
         let c2010 = a.p20 * b.p00 - 24 * gamma;
         let c3020 = a.p30 * b.p00 - 36 * gamma;
-        let c4030 = a.p30 * b.p00 - 36 * gamma;
+        let c4030 = a.p40 * b.p00 - 36 * gamma;
 
         %{ print_felt_info(ids.c1000, "c1000") %}
 
@@ -146,6 +175,8 @@ namespace fbn254 {
         %{ print_felt_info(ids.c4030, "c4030") %}
 
         // BEGIN1
+        %{ print('BEGIN1') %}
+
         // 3. c(t) = c(t) + a(t)bj
 
         let c00 = c1000 + a.p00 * b.p10;
@@ -163,14 +194,23 @@ namespace fbn254 {
         let c1000 = c2010 + a.p10 * b.p10 - 6 * gamma + qc00 + mu;
         let c2010 = c3020 + a.p20 * b.p10 - 24 * gamma;
         let c3020 = c4030 + a.p30 * b.p10 - 36 * gamma;
-        let c4030 = a.p30 * b.p10 - 36 * gamma;
+        let c4030t = a.p40 * b.p10 - 36 * gamma;
 
+        let is_nnk = is_nn(c4030t);
+        local c4030;
+        if (is_nnk == 0) {
+            assert c4030 = (-1) * c4030t;
+        } else {
+            assert c4030 = c4030t;
+        }
         %{ print_felt_info(ids.c1000, "c1000") %}
         %{ print_felt_info(ids.c2010, "c2010") %}
         %{ print_felt_info(ids.c3020, "c3020") %}
         %{ print_felt_info(ids.c4030, "c4030") %}
 
         // BEGIN2
+        %{ print('BEGIN2') %}
+
         // 3. c(t) = c(t) + a(t)bj
 
         let c00 = c1000 + a.p00 * b.p20;
@@ -187,9 +227,23 @@ namespace fbn254 {
         let c1000 = c2010 + a.p10 * b.p20 - 6 * gamma + qc00 + mu;
         let c2010 = c3020 + a.p20 * b.p20 - 24 * gamma;
         let c3020 = c4030 + a.p30 * b.p20 - 36 * gamma;
-        let c4030 = a.p30 * b.p20 - 36 * gamma;
+        let c4030t = a.p40 * b.p20 - 36 * gamma;
+        let is_nnk = is_nn(c4030t);
+        local c4030;
+        if (is_nnk == 0) {
+            assert c4030 = (-1) * c4030t;
+        } else {
+            assert c4030 = c4030t;
+        }
+
+        %{ print_felt_info(ids.c1000, "c1000") %}
+
+        %{ print_felt_info(ids.c2010, "c2010") %}
+        %{ print_felt_info(ids.c3020, "c3020") %}
+        %{ print_felt_info(ids.c4030, "c4030") %}
 
         // BEGIN3
+        %{ print('BEGIN3') %}
         // 3. c(t) = c(t) + a(t)bj
 
         let c00 = c1000 + a.p00 * b.p30;
@@ -207,9 +261,25 @@ namespace fbn254 {
         let c1000 = c2010 + a.p10 * b.p30 - 6 * gamma + qc00 + mu;
         let c2010 = c3020 + a.p20 * b.p30 - 24 * gamma;
         let c3020 = c4030 + a.p30 * b.p30 - 36 * gamma;
-        let c4030 = a.p40 * b.p30 - 36 * gamma;
+        let c4030t = a.p40 * b.p30 - 36 * gamma;
+        let is_nnk = is_nn(c4030t);
+        local c4030;
+        if (is_nnk == 0) {
+            assert c4030 = (-1) * c4030t;
+        } else {
+            assert c4030 = c4030t;
+        }
+
+        %{ print_felt_info(ids.c1000, "c1000") %}
+
+        %{ print_felt_info(ids.c2010, "c2010") %}
+        %{ print_felt_info(ids.c3020, "c3020") %}
+        %{ print_felt_info(ids.c4030, "c4030") %}
 
         // BEGIN4
+
+        %{ print('BEGIN4 ') %}
+
         // 3. c(t) = c(t) + a(t)bj
 
         let c00 = c1000 + a.p00 * b.p40;
@@ -228,7 +298,15 @@ namespace fbn254 {
         let c1000 = c2010 + a.p10 * b.p40 - 6 * gamma + qc00 + mu;
         let c2010 = c3020 + a.p20 * b.p40 - 24 * gamma;
         let c3020 = c4030 + a.p30 * b.p40 - 36 * gamma;
-        let c4030 = a.p40 * b.p40 - 36 * gamma;
+
+        let c4030t = a.p40 * b.p40 - 36 * gamma;
+        let is_nnk = is_nn(c4030t);
+        local c4030;
+        if (is_nnk == 0) {
+            assert c4030 = (-1) * c4030t;
+        } else {
+            assert c4030 = c4030t;
+        }
 
         %{ print_felt_info(ids.c1000, "c1000") %}
         %{ print_felt_info(ids.c2010, "c2010") %}
@@ -260,6 +338,8 @@ namespace fbn254 {
         let c30 = gamma - s * mu;
         let c40 = c4030 + mu;
 
+        %{
+        %}
         let res = Polyfelt(c00, c10, c20, c30, c40);
         return res;
     }
